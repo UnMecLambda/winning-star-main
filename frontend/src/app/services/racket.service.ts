@@ -69,6 +69,12 @@ export interface UserRacket {
   };
   gamesPlayed: number;
   isEquipped: boolean;
+  isRented: boolean;
+  rentedTo?: string;
+  rentPrice?: number;
+  rentDuration?: number;
+  rentExpiresAt?: Date;
+  totalEarnings: number;
   purchaseDate: Date;
 }
 
@@ -146,6 +152,14 @@ export class RacketService {
 
   removeFromRent(userRacketId: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/rackets/remove-from-rent`, { userRacketId });
+  }
+
+  // Rental market interface
+  interface RentalRacket extends UserRacket {
+    userId: {
+      username: string;
+      avatar: string;
+    };
   }
 
   // Utility methods
