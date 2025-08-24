@@ -71,12 +71,12 @@
             <div class="price">{{ racket.basePrice | number }} coins</div>
             <button 
               class="btn btn-primary"
-              [disabled]="userCoins < racket.basePrice || myRackets.some(r => r.racketId.id === racket.id)"
+              [disabled]="!canPurchaseRacket(racket)"
               (click)="purchaseRacket(racket)"
             >
               <lucide-icon name="shopping-cart"></lucide-icon>
-              <span *ngIf="!myRackets.some(r => r.racketId.id === racket.id)">Buy</span>
-              <span *ngIf="myRackets.some(r => r.racketId.id === racket.id)">Owned</span>
+              <span *ngIf="!isRacketOwned(racket)">Buy</span>
+              <span *ngIf="isRacketOwned(racket)">Owned</span>
             </button>
           </div>
         </div>

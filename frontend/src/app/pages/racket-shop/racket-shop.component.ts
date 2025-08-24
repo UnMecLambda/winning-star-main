@@ -113,6 +113,14 @@ export class RacketShopComponent implements OnInit {
     return this.racketService.getRarityGradient(rarity);
   }
 
+  isRacketOwned(racket: Racket): boolean {
+    return this.myRackets.some(r => r.racketId.id === racket.id);
+  }
+
+  canPurchaseRacket(racket: Racket): boolean {
+    return this.userCoins >= racket.basePrice && !this.isRacketOwned(racket);
+  }
+
   getStatIcon(stat: string): string {
     switch (stat) {
       case 'power': return 'zap';
