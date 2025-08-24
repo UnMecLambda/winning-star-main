@@ -5,60 +5,66 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Charge toujours le .env situé dans backend/.env
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
 import { connectDatabase } from './config/database';
-import { setupSocketHandlers } from './socket/handlers';
+import { connectRedis } from './config/redis';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
-import gameRoutes from './routes/game';
 import storeRoutes from './routes/store';
+import gameRoutes from './routes/game';
 import ledgerRoutes from './routes/ledger';
 import withdrawalRoutes from './routes/withdrawals';
+import { setupSocketHandlers } from './socket/handlers';
 import { errorHandler } from './middleware/errorHandler';
-
-// Load environment variables
-dotenv.config();
+import { authenticateSocket } from './middleware/socketAuth';
 
 const app = express();
 const server = createServer(app);
-
-// CORS configuration
-const corsOptions = {
-  origin: [
-    'http://localhost:4200',
-    'http://127.0.0.1:4200',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-console.log('CORS origins allowed:', corsOptions.origin);
-
-// Socket.IO setup
 const io = new Server(server, {
-  cors: corsOptions
+  cors: {
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:4200',
+      'http://127.0.0.1:4200',
+      process.env.GAME_URL || 'http://localhost:3000'
+      'http://127.0.0.1:3000'
+    ],
+    methods: ['GET', 'POST']
+  }
 });
 
-// Middleware
+// Security middleware
 app.use(helmet());
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:4200',
+    'http://127.0.0.1:4200',
+    process.env.GAME_URL || 'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ],
+  credentials: true
+}));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  message: 'Too many requests from this IP'
 });
-app.use('/api/', limiter);
+app.use(limiter);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/game', gameRoutes);
 app.use('/api/store', storeRoutes);
+app.use('/api/game', gameRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 
@@ -67,25 +73,31 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Socket.IO handlers
-setupSocketHandlers(io);
-
-// Error handling middleware
+// Error handling
 app.use(errorHandler);
+
+// Socket.IO setup
+io.use(authenticateSocket);
+setupSocketHandlers(io);
 
 const PORT = process.env.PORT || 3001;
 
-// Connect to database and start server
-connectDatabase()
-  .then(() => {
+async function startServer() {
+  try {
+    await connectDatabase();
+    await connectRedis();
+
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🌐 CORS enabled for: http://localhost:4200, http://127.0.0.1:4200`);
     });
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
-  });
+  }
+}
+
+startServer();
 
 export { io };
