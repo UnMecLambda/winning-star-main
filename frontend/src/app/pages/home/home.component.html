@@ -1,0 +1,141 @@
+<div class="home-container">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-text">
+        <h1 class="hero-title">
+          Welcome to <span class="gradient-text">Winning Star</span>
+        </h1>
+        <p class="hero-subtitle">
+          Play competitive games, earn real rewards, and climb the leaderboards in the ultimate gaming platform.
+        </p>
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-large" routerLink="/play" *ngIf="isAuthenticated">
+            <lucide-icon name="play"></lucide-icon>
+            Start Playing
+          </button>
+          <button class="btn btn-primary btn-large" routerLink="/register" *ngIf="!isAuthenticated">
+            <lucide-icon name="star"></lucide-icon>
+            Join Now
+          </button>
+          <button class="btn btn-outline btn-large" routerLink="/leaderboard">
+            <lucide-icon name="trophy"></lucide-icon>
+            Leaderboard
+          </button>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="game-preview">
+          <div class="tennis-court">
+            <div class="court-line"></div>
+            <div class="net"></div>
+            <div class="player player-1"></div>
+            <div class="player player-2"></div>
+            <div class="ball"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features">
+    <div class="container">
+      <h2 class="section-title">Why Choose Winning Star?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <lucide-icon name="play"></lucide-icon>
+          </div>
+          <h3>Competitive Gaming</h3>
+          <p>Play against real opponents in skill-based matches. Every game counts towards your ranking.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">
+            <lucide-icon name="star"></lucide-icon>
+          </div>
+          <h3>Real Rewards</h3>
+          <p>Earn coins that have real value. Win games, rent equipment, and cash out your earnings.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">
+            <lucide-icon name="trophy"></lucide-icon>
+          </div>
+          <h3>Equipment System</h3>
+          <p>Collect and upgrade rackets, unlock skins, and rent your items to other players for passive income.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">
+            <lucide-icon name="users"></lucide-icon>
+          </div>
+          <h3>Community</h3>
+          <p>Join a thriving community of competitive gamers. Climb leaderboards and prove your skills.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Games Section -->
+  <section class="games">
+    <div class="container">
+      <h2 class="section-title">Available Games</h2>
+      <div class="games-grid">
+        <div class="game-card active">
+          <div class="game-image">
+            <div class="tennis-icon">🎾</div>
+          </div>
+          <div class="game-info">
+            <h3>Tennis</h3>
+            <p>Fast-paced tennis matches with skill-based gameplay. Master your serves and volleys.</p>
+            <div class="game-stats">
+              <span class="stat">
+                <lucide-icon name="users"></lucide-icon>
+                {{ onlinePlayers }} online
+              </span>
+            </div>
+            <button class="btn btn-primary" routerLink="/play" *ngIf="isAuthenticated">Play Now</button>
+            <button class="btn btn-outline" routerLink="/register" *ngIf="!isAuthenticated">Join to Play</button>
+          </div>
+        </div>
+        
+        <div class="game-card coming-soon">
+          <div class="game-image">
+            <div class="racing-icon">🏎️</div>
+          </div>
+          <div class="game-info">
+            <h3>Racing</h3>
+            <p>High-speed racing action coming soon. Customize your cars and dominate the tracks.</p>
+            <div class="coming-soon-badge">Coming Soon</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="stats" *ngIf="platformStats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number">{{ platformStats.totalPlayers | number }}</div>
+          <div class="stat-label">Total Players</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{ platformStats.gamesPlayed | number }}</div>
+          <div class="stat-label">Games Played</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">€{{ platformStats.totalPayout | number }}</div>
+          <div class="stat-label">Total Payouts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{ onlinePlayers | number }}</div>
+          <div class="stat-label">Online Now</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

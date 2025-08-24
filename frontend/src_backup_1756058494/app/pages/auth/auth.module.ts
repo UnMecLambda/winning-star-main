@@ -1,0 +1,25 @@
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { LucideAngularModule, Mail, Lock, User, Eye, EyeOff } from 'lucide-angular';
+
+import { LoginComponent } from './login/login.component';
+import { RegisterComponent } from './register/register.component';
+
+@NgModule({
+  declarations: [
+    LoginComponent,
+    RegisterComponent
+  ],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    LucideAngularModule.pick({ Mail, Lock, User, Eye, EyeOff }),
+    RouterModule.forChild([
+      { path: 'login', component: LoginComponent },
+      { path: 'register', component: RegisterComponent }
+    ])
+  ]
+})
+export class AuthModule { }

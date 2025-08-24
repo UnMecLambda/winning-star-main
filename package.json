@@ -1,0 +1,25 @@
+{
+  "name": "winning-star-gaming-platform",
+  "version": "1.0.0",
+  "description": "Multi-game platform with virtual economy",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "games"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:games\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:games": "cd games && npm run dev",
+
+    "build": "npm run build:backend && npm run build:frontend && npm run build:games",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:games": "cd games && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,89 @@
+<div class="app-container">
+  <nav class="navbar" *ngIf="!isGameRoute">
+    <div class="nav-content">
+      <div class="nav-brand">
+        <img src="/assets/logo.png" alt="Winning Star" class="logo" />
+        <span class="brand-text">Winning Star</span>
+      </div>
+      
+      <div class="nav-links" *ngIf="!isMobile">
+        <a routerLink="/home" routerLinkActive="active">Home</a>
+        <a routerLink="/play" routerLinkActive="active">Play</a>
+        <a routerLink="/store" routerLinkActive="active">Store</a>
+        <a routerLink="/leaderboard" routerLinkActive="active">Leaderboard</a>
+        <a routerLink="/inventory" routerLinkActive="active" *ngIf="isAuthenticated">Inventory</a>
+      </div>
+
+      <div class="nav-actions">
+        <div class="coins-display" *ngIf="isAuthenticated">
+          <lucide-icon name="coins" class="coin-icon"></lucide-icon>
+          <span>{{ userCoins | number }}</span>
+        </div>
+        
+        <div class="user-menu" *ngIf="isAuthenticated; else authButtons">
+          <button class="user-button" (click)="toggleUserMenu()">
+            <img [src]="userAvatar" alt="Avatar" class="avatar" />
+            <span>{{ username }}</span>
+            <lucide-icon name="chevron-down" class="chevron"></lucide-icon>
+          </button>
+          
+          <div class="user-dropdown" *ngIf="showUserMenu">
+            <a routerLink="/profile">Profile</a>
+            <a routerLink="/transactions">Transactions</a>
+            <a routerLink="/withdrawals">Withdrawals</a>
+            <hr>
+            <button (click)="logout()">Logout</button>
+          </div>
+        </div>
+
+        <ng-template #authButtons>
+          <button class="btn btn-outline" routerLink="/login">Login</button>
+          <button class="btn btn-primary" routerLink="/register">Sign Up</button>
+        </ng-template>
+
+        <button class="mobile-menu-btn" *ngIf="isMobile" (click)="toggleMobileMenu()">
+          <lucide-icon name="menu"></lucide-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" *ngIf="showMobileMenu && isMobile">
+      <a routerLink="/home" (click)="closeMobileMenu()">Home</a>
+      <a routerLink="/play" (click)="closeMobileMenu()">Play</a>
+      <a routerLink="/store" (click)="closeMobileMenu()">Store</a>
+      <a routerLink="/leaderboard" (click)="closeMobileMenu()">Leaderboard</a>
+      <a routerLink="/inventory" (click)="closeMobileMenu()" *ngIf="isAuthenticated">Inventory</a>
+      <hr *ngIf="isAuthenticated">
+      <a routerLink="/profile" (click)="closeMobileMenu()" *ngIf="isAuthenticated">Profile</a>
+      <button (click)="logout()" *ngIf="isAuthenticated">Logout</button>
+    </div>
+  </nav>
+
+  <main class="main-content" [class.game-mode]="isGameRoute">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="footer" *ngIf="!isGameRoute">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>Winning Star</h4>
+        <p>The ultimate gaming platform with real rewards</p>
+      </div>
+      <div class="footer-section">
+        <h4>Games</h4>
+        <a href="#">Tennis</a>
+        <a href="#">Racing (Coming Soon)</a>
+      </div>
+      <div class="footer-section">
+        <h4>Support</h4>
+        <a href="#">Help Center</a>
+        <a href="#">Contact Us</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2024 Winning Star. All rights reserved.</p>
+    </div>
+  </footer>
+</div>
