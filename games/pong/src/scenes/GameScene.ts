@@ -21,8 +21,8 @@ export class GameScene extends Phaser.Scene {
   private ball!: Phaser.Physics.Arcade.Image;
   private me!: Phaser.Physics.Arcade.Image;
   private opp!: Phaser.Physics.Arcade.Image;
-  private myPaddle!: Phaser.GameObjects.Rectangle;
-  private oppPaddle!: Phaser.GameObjects.Rectangle;
+  private myPaddle!: Phaser.GameObjects.Container;
+  private oppPaddle!: Phaser.GameObjects.Container;
 
   private scoreTop = 0;
   private scoreBottom = 0;
@@ -132,7 +132,8 @@ export class GameScene extends Phaser.Scene {
     const backendUrl = (window as any).IBET_BACKEND_URL || (new URLSearchParams(location.search).get('api') || 'http://localhost:4000');
     if(this.token){
       // lazy import to avoid SSR constraints
-            this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y + 24);
+      import('../network/GameSocket').then(() => {
+        this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y + 24);
         this.socket = new GameSocket(backendUrl, this.token);
         this.bindSocket();
       });
