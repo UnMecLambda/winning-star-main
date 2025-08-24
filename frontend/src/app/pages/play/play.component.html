@@ -1,0 +1,69 @@
+<div class="play-container">
+  <div class="container">
+    <div class="play-header">
+      <h1>Choose Your Game</h1>
+      <p>Select a game mode and start playing against real opponents</p>
+    </div>
+
+    <div class="games-grid">
+      <!-- Tennis/Pong Game -->
+      <div class="game-card">
+        <div class="game-icon">
+          🎾
+        </div>
+        <div class="game-info">
+          <h3>Tennis</h3>
+          <p>Fast-paced tennis matches with skill-based gameplay</p>
+          <div class="game-stats">
+            <div class="stat">
+              <lucide-icon name="users"></lucide-icon>
+              <span>{{ connectedPlayers }} online</span>
+            </div>
+          </div>
+        </div>
+        <div class="game-actions">
+          <button 
+            class="btn btn-primary btn-large" 
+            (click)="findMatch('pong')"
+            [disabled]="isSearching"
+          >
+            <lucide-icon name="users" *ngIf="!isSearching"></lucide-icon>
+            <lucide-icon name="clock" *ngIf="isSearching"></lucide-icon>
+            {{ isSearching ? 'Searching...' : 'Find Match' }}
+          </button>
+          <button 
+            class="btn btn-outline" 
+            (click)="playPong()"
+          >
+            <lucide-icon name="play"></lucide-icon>
+            Practice
+          </button>
+        </div>
+      </div>
+
+      <!-- Coming Soon Games -->
+      <div class="game-card coming-soon">
+        <div class="game-icon">
+          🏎️
+        </div>
+        <div class="game-info">
+          <h3>Racing</h3>
+          <p>High-speed racing action coming soon</p>
+          <div class="coming-soon-badge">Coming Soon</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Status -->
+    <div class="search-status" *ngIf="isSearching">
+      <div class="search-card">
+        <div class="search-spinner"></div>
+        <h3>Finding Match...</h3>
+        <p>Looking for an opponent with similar skill level</p>
+        <button class="btn btn-outline" (click)="cancelSearch()">
+          Cancel Search
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,68 @@
+<div class="leaderboard-container">
+  <div class="container">
+    <div class="leaderboard-header">
+      <h1>Leaderboard</h1>
+      <p>See how you rank against other players</p>
+    </div>
+
+    <div class="leaderboard-tabs">
+      <button 
+        class="tab-btn" 
+        [class.active]="leaderboardType === 'score'"
+        (click)="changeType('score')"
+      >
+        Total Score
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="leaderboardType === 'wins'"
+        (click)="changeType('wins')"
+      >
+        Wins
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="leaderboardType === 'level'"
+        (click)="changeType('level')"
+      >
+        Level
+      </button>
+    </div>
+
+    <div class="leaderboard-content" *ngIf="!loading">
+      <div class="leaderboard-list">
+        <div 
+          class="player-row" 
+          *ngFor="let user of users; let i = index"
+          [class]="getRankClass(i + 1)"
+        >
+          <div class="rank">
+            <lucide-icon 
+              *ngIf="getRankIcon(i + 1)" 
+              [name]="getRankIcon(i + 1)!"
+              class="rank-icon"
+            ></lucide-icon>
+            <span *ngIf="!getRankIcon(i + 1)">{{ i + 1 }}</span>
+          </div>
+          <div class="player-info">
+            <img [src]="user.avatar || '/assets/avatars/default.png'" alt="Avatar" class="avatar">
+            <div class="player-details">
+              <div class="username">{{ user.username }}</div>
+              <div class="level">Level {{ user.level }}</div>
+            </div>
+          </div>
+          <div class="score">
+            <span *ngIf="leaderboardType === 'score'">{{ user.stats.totalScore | number }}</span>
+            <span *ngIf="leaderboardType === 'wins'">{{ user.stats.gamesWon | number }}</span>
+            <span *ngIf="leaderboardType === 'level'">{{ user.level | number }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Loading leaderboard...</p>
+    </div>
+  </div>
+</div>

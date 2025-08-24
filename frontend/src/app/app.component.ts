@@ -1,5 +1,5 @@
 import { Component, OnInit, HostListener } from '@angular/core';
-import { Router, NavigationEnd } from '@angular/router';
+import { Router, NavigationEnd, Event } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { filter } from 'rxjs/operators';
@@ -42,8 +42,9 @@ export class AppComponent implements OnInit {
     // Listen to route changes
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
-    ).subscribe((event: NavigationEnd) => {
-      this.isGameRoute = event.url.startsWith('/game') || event.url.startsWith('/play');
+    ).subscribe((event: Event) => {
+      const navEvent = event as NavigationEnd;
+      this.isGameRoute = navEvent.url.startsWith('/game') || navEvent.url.startsWith('/play') || navEvent.url.startsWith('/pong');
       this.showUserMenu = false;
       this.showMobileMenu = false;
     });
