@@ -67,7 +67,9 @@ export class AppComponent implements OnInit {
 
   @HostListener('window:resize', ['$event'])
   onResize(event: any) {
-    this.checkScreenSize();
+    if (typeof window !== 'undefined') {
+      this.checkScreenSize();
+    }
   }
 
   @HostListener('document:click', ['$event'])
@@ -82,7 +84,11 @@ export class AppComponent implements OnInit {
   }
 
   private checkScreenSize() {
-    this.isMobile = window.innerWidth < 768;
+    if (typeof window !== 'undefined') {
+      this.isMobile = window.innerWidth < 768;
+    } else {
+      this.isMobile = false; // Default value for SSR
+    }
   }
 
   private loadUserData() {
