@@ -2,7 +2,7 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, Event } from '@angular/router';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
-import { LucideAngularModule, MenuIcon, CoinsIcon, ChevronDownIcon, UserIcon, SettingsIcon, LogOutIcon } from 'lucide-angular';
+import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { filter } from 'rxjs/operators';
@@ -15,13 +15,7 @@ import { filter } from 'rxjs/operators';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-    LucideAngularModule,
-    MenuIcon,
-    CoinsIcon, 
-    ChevronDownIcon,
-    UserIcon,
-    SettingsIcon,
-    LogOutIcon
+    LucideAngularModule
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
