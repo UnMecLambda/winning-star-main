@@ -555,7 +555,9 @@ export class GameScene extends Phaser.Scene {
           handleColor: parseInt(racketData.handleColor?.replace('#', '0x') || '0x654321'),
           stringsColor: parseInt(racketData.stringsColor?.replace('#', '0x') || '0xFFFFFF'),
           gripTape: !!racketData.gripTape,
-          gripTapeColor: parseInt(racketData.gripTapeColor?.replace('#', '0x') || '0x000000')
+          gripTapeColor: parseInt(racketData.gripTapeColor?.replace('#', '0x') || '0x000000'),
+          dampener: !!racketData.dampener,
+          dampenerColor: parseInt(racketData.dampenerColor?.replace('#', '0x') || '0xFF0000')
         };
       } catch (e) {
         console.warn('Failed to parse racket data from URL');
@@ -568,7 +570,9 @@ export class GameScene extends Phaser.Scene {
       handleColor: 0x2F4F4F,
       stringsColor: 0xFFFFFF,
       gripTape: false,
-      gripTapeColor: 0x000000
+      gripTapeColor: 0x000000,
+      dampener: false,
+      dampenerColor: 0xFF0000
     };
   }
   

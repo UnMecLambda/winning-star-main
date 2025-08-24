@@ -82,6 +82,15 @@ export class PongComponent {
           visual.gripTapeColor = gripComponent.visualConfig.color;
         }
       }
+      
+      if (equippedRacket.customization.dampener) {
+        const components = await this.racketService.getComponents('dampener').toPromise();
+        const dampenerComponent = components?.find(c => c.id === equippedRacket.customization.dampener);
+        if (dampenerComponent) {
+          visual.dampener = true;
+          visual.dampenerColor = dampenerComponent.visualConfig.color;
+        }
+      }
     } catch (error) {
       console.warn('Failed to load component visuals:', error);
     }
