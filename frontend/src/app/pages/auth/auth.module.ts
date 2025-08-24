@@ -17,6 +17,7 @@ import { RegisterComponent } from './register/register.component';
     ReactiveFormsModule,
     LucideAngularModule.pick({ Mail, Lock, User, Eye, EyeOff, UserPlus }),
     RouterModule.forChild([
+      { path: '', component: LoginComponent },
       { path: 'login', component: LoginComponent },
       { path: 'register', component: RegisterComponent }
     ])

@@ -24,13 +24,15 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
 
     // Simulate online players count updates (every 30 seconds)
-    this.intervalId = window.setInterval(() => {
-      this.onlinePlayers = Math.floor(Math.random() * 500) + 1000;
-    }, 30000);
+    if (typeof window !== 'undefined') {
+      this.intervalId = window.setInterval(() => {
+        this.onlinePlayers = Math.floor(Math.random() * 500) + 1000;
+      }, 30000);
+    }
   }
 
   ngOnDestroy() {
-    if (this.intervalId) {
+    if (this.intervalId && typeof window !== 'undefined') {
       clearInterval(this.intervalId);
     }
   }
