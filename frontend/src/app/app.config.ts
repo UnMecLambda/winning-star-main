@@ -15,3 +15,5 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     importProvidersFrom(LucideAngularModule.pick({ Menu, Coins, ChevronDown, User, Settings, LogOut }))
   ]
+
+}
