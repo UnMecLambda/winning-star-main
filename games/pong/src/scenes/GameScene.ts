@@ -59,12 +59,12 @@ export class GameScene extends Phaser.Scene {
     this.net = this.add.rectangle(w/2, courtY + courtH/2, courtW, 8, 0xdddddd).setDepth(2);
 
     this.me = this.physics.add.image(w/2, courtY + courtH - 40, '')
-      .setCircle(24).setTint(0x111111).setImmovable(true);
+      .setCircle(20).setTint(0x111111).setImmovable(true);
     this.opp = this.physics.add.image(w/2, courtY + 40, '')
-      .setCircle(24).setTint(0x222244).setImmovable(true);
+      .setCircle(20).setTint(0x222244).setImmovable(true);
 
-    this.myPaddle = this.add.rectangle(this.me.x, this.me.y - 26, 120, 12, 0xffffff).setDepth(3);
-    this.oppPaddle = this.add.rectangle(this.opp.x, this.opp.y + 26, 120, 12, 0xffffff).setDepth(3);
+    this.myPaddle = this.add.rectangle(this.me.x, this.me.y - 24, 140, 16, 0xffffff).setDepth(3);
+    this.oppPaddle = this.add.rectangle(this.opp.x, this.opp.y + 24, 140, 16, 0xffffff).setDepth(3);
 
     this.ball = this.physics.add.image(w/2, h/2, '').setCircle(10).setTint(0xffde59);
     this.ball.setBounce(1, 1);
@@ -79,18 +79,18 @@ export class GameScene extends Phaser.Scene {
     const bottom = this.court.y + courtH/2 - 10;
     this.physics.world.setBounds(left, top, right-left, bottom-top);
 
-    this.physics.add.collider(this.ball, this.me, () => this.hitBall('me'));
-    this.physics.add.collider(this.ball, this.opp, () => this.hitBall('opp'));
+    this.physics.add.overlap(this.ball, this.me, () => this.hitBall('me'));
+    this.physics.add.overlap(this.ball, this.opp, () => this.hitBall('opp'));
 
     this.input.on('pointermove', (p: Phaser.Input.Pointer)=>{
       const targetY = Phaser.Math.Clamp(p.y, this.court.y, bottom);
       const targetX = Phaser.Math.Clamp(p.x, left+40, right-40);
       if(this.mySide==='bottom'){
         this.me.setPosition(targetX, targetY);
-        this.myPaddle.setPosition(this.me.x, this.me.y - 26);
+        this.myPaddle.setPosition(this.me.x, this.me.y - 24);
       } else {
         this.me.setPosition(targetX, Phaser.Math.Clamp(p.y, top, this.court.y));
-        this.myPaddle.setPosition(this.me.x, this.me.y + 26);
+        this.myPaddle.setPosition(this.me.x, this.me.y + 24);
       }
       this.sendInput({ type:'move', x:this.me.x, y:this.me.y });
     });
@@ -168,14 +168,41 @@ export class GameScene extends Phaser.Scene {
     this.rallyHits++;
     this.fury = Math.min(100, this.fury + 8);
     this.updateFuryBar();
-    const speed = 380 + Math.min(220, this.rallyHits * 8) + this.fury*1.5;
-    const towards = (who==='me') ? -1 : 1;
-    const dx = this.ball.x - (who==='me' ? this.me.x : this.opp.x);
-    const norm = Phaser.Math.Clamp(dx / 120, -0.9, 0.9);
-    const angle = Phaser.Math.RadToDeg(Math.atan2(towards, norm));
+    
+    const player = (who === 'me') ? this.me : this.opp;
+    const paddle = (who === 'me') ? this.myPaddle : this.oppPaddle;
+    
+    // Calculate hit position relative to paddle center (-1 to 1)
+    const hitPos = (this.ball.x - paddle.x) / (paddle.width / 2);
+    const clampedHitPos = Phaser.Math.Clamp(hitPos, -1, 1);
+    
+    // Calculate angle based on hit position (max 60 degrees)
+    const maxAngle = 60;
+    const angle = clampedHitPos * maxAngle;
+    
+    // Direction: up for bottom player, down for top player
+    const direction = (who === 'me' && this.mySide === 'bottom') || (who === 'opp' && this.mySide === 'top') ? -1 : 1;
+    
+    // Calculate speed with rally progression
+    const baseSpeed = 380;
+    const rallyBonus = Math.min(220, this.rallyHits * 8);
+    const furyBonus = this.fury * 1.5;
+    const speed = baseSpeed + rallyBonus + furyBonus;
+    
+    // Convert to velocity vector
     const v = new Phaser.Math.Vector2();
-    this.physics.velocityFromAngle(angle, speed, v);
+    const radians = Phaser.Math.DegToRad(angle);
+    v.x = Math.sin(radians) * speed;
+    v.y = direction * Math.cos(radians) * speed;
+    
+    // Ensure minimum vertical speed to avoid horizontal balls
+    const minVerticalSpeed = speed * 0.3;
+    if (Math.abs(v.y) < minVerticalSpeed) {
+      v.y = direction * minVerticalSpeed;
+    }
+    
     this.ball.setVelocity(v.x, v.y);
+    
     if(who==='me'){
       this.sendInput({ type:'hit', vx:v.x, vy:v.y, x:this.ball.x, y:this.ball.y, rally:this.rallyHits });
     }
@@ -203,10 +230,10 @@ export class GameScene extends Phaser.Scene {
       case 'move':
         if(this.mySide==='bottom'){
           this.opp.setPosition(input.x, input.y);
-          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 26);
+          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 24);
         } else {
           this.opp.setPosition(input.x, input.y);
-          this.oppPaddle.setPosition(this.opp.x, this.opp.y - 26);
+          this.oppPaddle.setPosition(this.opp.x, this.opp.y - 24);
         }
         break;
       case 'serve':
@@ -250,7 +277,7 @@ export class GameScene extends Phaser.Scene {
         if(this.ball.y < this.court.y){
           this.opp.y = Phaser.Math.Linear(this.opp.y, this.ball.y, 0.05);
           this.opp.x = Phaser.Math.Linear(this.opp.x, this.ball.x, 0.05);
-          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 26);
+          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 24);
         }
       }
     });

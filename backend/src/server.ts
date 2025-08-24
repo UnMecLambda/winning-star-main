@@ -29,7 +29,9 @@ const io = new Server(server, {
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:4200',
       'http://127.0.0.1:4200',
+      'http://127.0.0.1:4200',
       process.env.GAME_URL || 'http://localhost:3000'
+      'http://127.0.0.1:3000'
       'http://127.0.0.1:3000'
     ],
     methods: ['GET', 'POST']
@@ -42,7 +44,9 @@ app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:4200',
     'http://127.0.0.1:4200',
+    'http://127.0.0.1:4200',
     process.env.GAME_URL || 'http://localhost:3000',
+    'http://127.0.0.1:3000'
     'http://127.0.0.1:3000'
   ],
   credentials: true
@@ -90,7 +94,7 @@ async function startServer() {
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-      console.log(`🌐 CORS enabled for: http://localhost:4200, http://127.0.0.1:4200`);
+      console.log(`🌐 CORS enabled for: http://localhost:4200, http://127.0.0.1:4200, http://localhost:3000, http://127.0.0.1:3000`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

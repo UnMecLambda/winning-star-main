@@ -38,6 +38,7 @@ export class SocketService {
     if (!token) return;
 
     this.socket = io(environment.apiUrl, {
+    this.socket = io(environment.apiUrl.replace('/api', ''), {
       auth: { token }
     });
 

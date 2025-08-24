@@ -29,6 +29,8 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.onlinePlayers = Math.floor(Math.random() * 500) + 1000;
       }, 30000);
     }
+      }, 30000);
+    }
   }
 
   ngOnDestroy() {

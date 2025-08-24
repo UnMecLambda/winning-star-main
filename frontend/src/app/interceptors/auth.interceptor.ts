@@ -23,6 +23,16 @@ export class AuthInterceptor implements HttpInterceptor {
       );
     }
 
+    // Skip auth header for auth endpoints
+    if (req.url.includes('/auth/login') || req.url.includes('/auth/register')) {
+      return next.handle(req).pipe(
+        catchError((error: HttpErrorResponse) => {
+          console.error('Auth request error:', error);
+          return throwError(() => error);
+        })
+      );
+    }
+
     const token = this.authService.getAccessToken();
     
     if (token) {

@@ -18,6 +18,7 @@ import { RegisterComponent } from './register/register.component';
     LucideAngularModule.pick({ Mail, Lock, User, Eye, EyeOff, UserPlus }),
     RouterModule.forChild([
       { path: '', redirectTo: 'login', pathMatch: 'full' },
+      { path: '', redirectTo: 'login', pathMatch: 'full' },
       { path: 'login', component: LoginComponent },
       { path: 'register', component: RegisterComponent }
     ])
