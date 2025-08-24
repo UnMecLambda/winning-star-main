@@ -2,7 +2,7 @@
   <nav class="navbar" *ngIf="!isGameRoute">
     <div class="nav-content">
       <div class="nav-brand">
-        <img src="/assets/logo.png" alt="Winning Star" class="logo" />
+        <div class="logo" title="Winning Star"></div>
         <span class="brand-text">Winning Star</span>
       </div>
       
@@ -22,7 +22,7 @@
         
         <div class="user-menu" *ngIf="isAuthenticated; else authButtons">
           <button class="user-button" (click)="toggleUserMenu()">
-            <img [src]="userAvatar" alt="Avatar" class="avatar" />
+            <div class="avatar" [title]="username">{{ username.charAt(0).toUpperCase() }}</div>
             <span>{{ username }}</span>
             <lucide-icon name="chevron-down" class="chevron"></lucide-icon>
           </button>
