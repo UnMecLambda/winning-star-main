@@ -1,9 +1,9 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, Event } from '@angular/router';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { LucideAngularModule } from 'lucide-angular';
+import { LucideAngularModule, Menu, Coins, ChevronDown, User, Settings, LogOut } from 'lucide-angular';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { filter } from 'rxjs/operators';
@@ -14,7 +14,9 @@ import { filter } from 'rxjs/operators';
   imports: [
     CommonModule,
     RouterOutlet,
-    LucideAngularModule
+    RouterLink,
+    RouterLinkActive,
+    LucideAngularModule.pick({ Menu, Coins, ChevronDown, User, Settings, LogOut })
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
