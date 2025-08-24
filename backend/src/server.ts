@@ -29,9 +29,7 @@ const io = new Server(server, {
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:4200',
       'http://127.0.0.1:4200',
-      'http://127.0.0.1:4200',
-      process.env.GAME_URL || 'http://localhost:3000'
-      'http://127.0.0.1:3000'
+      process.env.GAME_URL || 'http://localhost:3000',
       'http://127.0.0.1:3000'
     ],
     methods: ['GET', 'POST']
@@ -44,9 +42,7 @@ app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:4200',
     'http://127.0.0.1:4200',
-    'http://127.0.0.1:4200',
     process.env.GAME_URL || 'http://localhost:3000',
-    'http://127.0.0.1:3000'
     'http://127.0.0.1:3000'
   ],
   credentials: true
