@@ -197,8 +197,8 @@ router.post('/customize', authenticateToken, async (req: AuthRequest, res) => {
     
     const userRacket = await UserRacket.findOne({ 
       _id: userRacketId, 
-      userId: req.user._id 
-    }).populate('racketId');
+      userId: req.user._id.toString() 
+    });
     
     if (!userRacket) {
       return res.status(404).json({ error: 'Racket not found' });
@@ -225,8 +225,13 @@ router.post('/customize', authenticateToken, async (req: AuthRequest, res) => {
       isActive: true 
     });
     
+    // Get base racket data
+    const baseRacket = await Racket.findOne({ id: userRacket.racketId });
+    if (!baseRacket) {
+      return res.status(404).json({ error: 'Base racket not found' });
+    }
+    
     // Calculate new total stats
-    const baseRacket = userRacket.racketId as any;
     let totalStats = {
       power: baseRacket.baseStats.power,
       control: baseRacket.baseStats.control,
