@@ -24,6 +24,9 @@ export class GameScene extends Phaser.Scene {
   private myPaddle!: Phaser.GameObjects.Container;
   private oppPaddle!: Phaser.GameObjects.Container;
 
+  private myHandedness: 'left' | 'right' = 'right';
+  private oppHandedness: 'left' | 'right' = 'right';
+
   private scoreTop = 0;
   private scoreBottom = 0;
   private scoreText!: Phaser.GameObjects.Text;
@@ -74,9 +77,12 @@ export class GameScene extends Phaser.Scene {
     this.opp = this.physics.add.image(w/2, courtY + 40, '')
       .setCircle(20).setTint(0x222244).setImmovable(true);
 
-    // Create racket visuals with customization
-    this.myPaddle = this.createRacketVisual(this.me.x, this.me.y - 24, true);
-    this.oppPaddle = this.createRacketVisual(this.opp.x, this.opp.y + 24, false);
+    // Load handedness from user data
+    this.loadPlayerHandedness();
+    
+    // Create realistic racket visuals
+    this.myPaddle = this.createRealisticRacket(this.me.x, this.me.y - 40, true, this.myHandedness);
+    this.oppPaddle = this.createRealisticRacket(this.opp.x, this.opp.y + 40, false, this.oppHandedness);
 
     this.ball = this.physics.add.image(w/2, h/2, '').setCircle(10).setTint(0xffde59);
     this.ball.setBounce(1, 1);
@@ -114,10 +120,10 @@ export class GameScene extends Phaser.Scene {
       const targetX = Phaser.Math.Clamp(p.x, left+40, right-40);
       if(this.mySide==='bottom'){
         this.me.setPosition(targetX, targetY);
-        this.updateRacketPosition(this.myPaddle, this.me.x, this.me.y - 24);
+        this.updateRacketPosition(this.myPaddle, this.me.x, this.me.y - 40);
       } else {
         this.me.setPosition(targetX, Phaser.Math.Clamp(p.y, top, this.court.y));
-        this.updateRacketPosition(this.myPaddle, this.me.x, this.me.y + 24);
+        this.updateRacketPosition(this.myPaddle, this.me.x, this.me.y + 40);
       }
       this.sendInput({ type:'move', x:this.me.x, y:this.me.y });
     });
@@ -285,10 +291,10 @@ export class GameScene extends Phaser.Scene {
       case 'move':
         if(this.mySide==='bottom'){
           this.opp.setPosition(input.x, input.y);
-          this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y + 24);
+          this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y + 40);
         } else {
           this.opp.setPosition(input.x, input.y);
-          this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y - 24);
+          this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y - 40);
         }
         break;
       case 'serve':
@@ -332,7 +338,7 @@ export class GameScene extends Phaser.Scene {
         if(this.ball.y < this.court.y){
           this.opp.y = Phaser.Math.Linear(this.opp.y, this.ball.y, 0.05);
           this.opp.x = Phaser.Math.Linear(this.opp.x, this.ball.x, 0.05);
-          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 24);
+          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 40);
         }
       }
     });
@@ -367,44 +373,158 @@ export class GameScene extends Phaser.Scene {
     }
   }
   
-  private createRacketVisual(x: number, y: number, isMyRacket: boolean): Phaser.GameObjects.Container {
+  private loadPlayerHandedness() {
+    // Load handedness from user data or URL params
+    const params = new URLSearchParams(location.search);
+    const handsParam = params.get('handedness');
+    
+    if (handsParam) {
+      try {
+        const handedness = JSON.parse(decodeURIComponent(handsParam));
+        this.myHandedness = handedness.my || 'right';
+        this.oppHandedness = handedness.opp || 'right';
+      } catch (e) {
+        console.warn('Failed to parse handedness from URL');
+      }
+    }
+  }
+  
+  private createRealisticRacket(x: number, y: number, isMyRacket: boolean, handedness: 'left' | 'right'): Phaser.GameObjects.Container {
     const container = this.add.container(x, y);
     
     // Get racket data from URL params or use defaults
     const racketData = this.getRacketData(isMyRacket);
     
-    // Create racket frame (main body)
-    const frame = this.add.rectangle(0, 0, 120, 12, racketData.frameColor)
-      .setStrokeStyle(1, 0x000000);
+    // Racket dimensions
+    const racketLength = 80;
+    const racketWidth = 50;
+    const handleLength = 30;
+    const handleWidth = 8;
+    
+    // Orientation based on handedness
+    const angle = handedness === 'right' ? -15 : 15; // Degrees
+    const offsetX = handedness === 'right' ? 15 : -15;
+    
+    // Create racket head (oval frame)
+    const headFrame = this.add.ellipse(offsetX, -racketLength/2, racketWidth, racketLength/1.5, racketData.frameColor)
+      .setStrokeStyle(3, 0x000000);
+    
+    // Create racket head inner area (slightly smaller)
+    const headInner = this.add.ellipse(offsetX, -racketLength/2, racketWidth-6, racketLength/1.5-6, 0x000000, 0)
+      .setStrokeStyle(1, racketData.frameColor);
+    
+    // Create strings pattern (vertical and horizontal)
+    const strings = this.add.group();
+    
+    // Vertical strings
+    for(let i = -3; i <= 3; i++) {
+      const stringX = offsetX + (i * 6);
+      const stringLine = this.add.line(0, 0, stringX, -racketLength/2 - 15, stringX, -racketLength/2 + 15, racketData.stringsColor)
+        .setLineWidth(1);
+      strings.add(stringLine);
+    }
+    
+    // Horizontal strings
+    for(let i = -2; i <= 2; i++) {
+      const stringY = -racketLength/2 + (i * 6);
+      const stringLine = this.add.line(0, 0, offsetX - 20, stringY, offsetX + 20, stringY, racketData.stringsColor)
+        .setLineWidth(1);
+      strings.add(stringLine);
+    }
     
     // Create handle
-    const handle = this.add.rectangle(0, 0, 20, 12, racketData.handleColor)
+    const handle = this.add.rectangle(0, handleLength/2, handleWidth, handleLength, racketData.handleColor)
       .setStrokeStyle(1, 0x000000);
     
-    // Create strings pattern
-    const strings = this.add.group();
-    for(let i = -50; i <= 50; i += 10) {
-      const stringLine = this.add.rectangle(i, 0, 1, 10, racketData.stringsColor);
-      strings.add(stringLine);
-    }
-    for(let i = -4; i <= 4; i += 2) {
-      const stringLine = this.add.rectangle(0, i, 100, 1, racketData.stringsColor);
-      strings.add(stringLine);
-    }
-    
-    // Add grip tape effect on handle
+    // Create grip tape if equipped
     if(racketData.gripTape) {
-      const grip = this.add.rectangle(0, 0, 18, 10, racketData.gripTapeColor)
-        .setAlpha(0.7);
+      const grip = this.add.rectangle(0, handleLength/2, handleWidth-1, handleLength-4, racketData.gripTapeColor)
+        .setAlpha(0.8);
       container.add(grip);
+      
+      // Add grip texture lines
+      for(let i = -3; i <= 3; i++) {
+        const gripLine = this.add.line(0, 0, -3, handleLength/2 + (i * 3), 3, handleLength/2 + (i * 3), 0x000000)
+          .setLineWidth(1)
+          .setAlpha(0.3);
+        container.add(gripLine);
+      }
     }
     
-    // Add components to container
-    container.add([frame, handle]);
+    // Create handle cap
+    const handleCap = this.add.rectangle(0, handleLength, handleWidth+2, 4, 0x333333)
+      .setStrokeStyle(1, 0x000000);
+    
+    // Create strap (small detail)
+    const strap = this.add.rectangle(0, handleLength + 2, 3, 8, 0x8B4513)
+      .setStrokeStyle(1, 0x000000);
+    
+    // Add dampener if equipped (small colored dot on strings)
+    if(racketData.dampener) {
+      const dampener = this.add.circle(offsetX, -racketLength/2 + 10, 3, racketData.dampenerColor)
+        .setStrokeStyle(1, 0x000000);
+      container.add(dampener);
+    }
+    
+    // Add all components to container
+    container.add([headFrame, headInner, handle, handleCap, strap]);
     strings.children.entries.forEach(child => container.add(child));
+    
+    // Apply rotation based on handedness
+    container.setRotation(Phaser.Math.DegToRad(angle));
     
     container.setDepth(3);
     return container;
+  }
+  
+  private createCharacterVisual(x: number, y: number, isMyCharacter: boolean): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y);
+    
+    // For now, create a simple character placeholder
+    // Later this will load from character assets
+    const characterData = this.getCharacterData(isMyCharacter);
+    
+    // Head
+    const head = this.add.circle(0, -15, 12, characterData.skinColor)
+      .setStrokeStyle(2, 0x000000);
+    
+    // Body
+    const body = this.add.rectangle(0, 0, 16, 20, characterData.shirtColor)
+      .setStrokeStyle(2, 0x000000);
+    
+    // Arms
+    const leftArm = this.add.rectangle(-12, -5, 8, 12, characterData.skinColor)
+      .setStrokeStyle(1, 0x000000);
+    const rightArm = this.add.rectangle(12, -5, 8, 12, characterData.skinColor)
+      .setStrokeStyle(1, 0x000000);
+    
+    // Legs
+    const leftLeg = this.add.rectangle(-6, 15, 8, 15, characterData.pantsColor)
+      .setStrokeStyle(1, 0x000000);
+    const rightLeg = this.add.rectangle(6, 15, 8, 15, characterData.pantsColor)
+      .setStrokeStyle(1, 0x000000);
+    
+    container.add([head, body, leftArm, rightArm, leftLeg, rightLeg]);
+    container.setDepth(1);
+    
+    return container;
+  }
+  
+  private getCharacterData(isMyCharacter: boolean) {
+    // Default character colors - later this will load from character assets
+    if (isMyCharacter) {
+      return {
+        skinColor: 0xFFDBB3,
+        shirtColor: 0x4169E1,
+        pantsColor: 0xFFFFFF
+      };
+    } else {
+      return {
+        skinColor: 0xFFDBB3,
+        shirtColor: 0xFF4500,
+        pantsColor: 0x000080
+      };
+    }
   }
   
   private updateRacketPosition(racket: Phaser.GameObjects.Container, x: number, y: number) {
