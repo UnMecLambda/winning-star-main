@@ -1,14 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { RacketService, Racket, RacketComponent, UserRacket } from '../../services/racket.service';
+import { RacketService, Racket, RacketComponent, UserRacket, RentalRacket } from '../../services/racket.service';
 import { UserService } from '../../services/user.service';
-
-interface RentalRacket extends UserRacket {
-  userId: {
-    username: string;
-    avatar: string;
-  };
-}
 
 @Component({
   selector: 'app-racket-shop',

@@ -78,6 +78,41 @@ export interface UserRacket {
   purchaseDate: Date;
 }
 
+export interface RentalRacket {
+  _id: string;
+  userId: {
+    username: string;
+    avatar: string;
+  };
+  racketId: Racket;
+  customization: {
+    strings?: string;
+    handle?: string;
+    gripTape?: string;
+    dampener?: string;
+  };
+  durability: number;
+  maxDurability: number;
+  totalStats: {
+    power: number;
+    control: number;
+    speed: number;
+    durability: number;
+    furyRate: number;
+    ballSpeed: number;
+    spin: number;
+  };
+  gamesPlayed: number;
+  isEquipped: boolean;
+  isRented: boolean;
+  rentedTo?: string;
+  rentPrice?: number;
+  rentDuration?: number;
+  rentExpiresAt?: Date;
+  totalEarnings: number;
+  purchaseDate: Date;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -152,14 +187,6 @@ export class RacketService {
 
   removeFromRent(userRacketId: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/rackets/remove-from-rent`, { userRacketId });
-  }
-
-  // Rental market interface
-  interface RentalRacket extends UserRacket {
-    userId: {
-      username: string;
-      avatar: string;
-    };
   }
 
   // Utility methods
