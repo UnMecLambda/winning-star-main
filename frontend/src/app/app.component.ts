@@ -71,7 +71,7 @@ export class AppComponent implements OnInit {
   }
 
   @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event) {
+  onDocumentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (!target.closest('.user-menu')) {
       this.showUserMenu = false;
