@@ -1,11 +1,21 @@
 import { Component, OnInit, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, Event } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    LucideAngularModule
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
