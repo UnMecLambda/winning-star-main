@@ -35,16 +35,25 @@ router.get('/components', authenticateToken, async (req: AuthRequest, res) => {
 // Get user's rackets
 router.get('/my-rackets', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userRackets = await UserRacket.find({ userId: req.user._id })
-      .populate('racketId')
-      .populate('customization.strings')
-      .populate('customization.handle')
-      .populate('customization.gripTape')
-      .populate('customization.dampener')
+    const userRackets = await UserRacket.find({ userId: req.user._id.toString() })
       .sort({ isEquipped: -1, purchaseDate: -1 });
     
-    res.json(userRackets);
+    // Manually populate racket data
+    const populatedRackets = [];
+    for (const userRacket of userRackets) {
+      const racket = await Racket.findOne({ id: userRacket.racketId });
+      if (racket) {
+        const populatedRacket = {
+          ...userRacket.toObject(),
+          racketId: racket
+        };
+        populatedRackets.push(populatedRacket);
+      }
+    }
+    
+    res.json(populatedRackets);
   } catch (error) {
+    console.error('Error fetching user rackets:', error);
     res.status(500).json({ error: 'Failed to fetch user rackets' });
   }
 });
@@ -69,7 +78,7 @@ router.post('/purchase', authenticateToken, async (req: AuthRequest, res) => {
     }
     
     // Check if user already owns this racket
-    const existingRacket = await UserRacket.findOne({ userId: req.user._id, racketId });
+    const existingRacket = await UserRacket.findOne({ userId: req.user._id.toString(), racketId });
     if (existingRacket) {
       return res.status(400).json({ error: 'You already own this racket' });
     }
@@ -87,7 +96,7 @@ router.post('/purchase', authenticateToken, async (req: AuthRequest, res) => {
     
     // Create user racket
     const userRacket = new UserRacket({
-      userId: req.user._id,
+      userId: req.user._id.toString(),
       racketId: racket.id,
       customization: {},
       totalStats,
@@ -99,7 +108,7 @@ router.post('/purchase', authenticateToken, async (req: AuthRequest, res) => {
     
     // Create transaction
     const transaction = new Transaction({
-      userId: req.user._id,
+      userId: req.user._id.toString(),
       type: 'purchase',
       amount: -racket.basePrice,
       description: `Purchased racket: ${racket.name}`,
@@ -272,24 +281,31 @@ router.post('/equip', authenticateToken, async (req: AuthRequest, res) => {
     
     // Unequip all rackets
     await UserRacket.updateMany(
-      { userId: req.user._id },
+      { userId: req.user._id.toString() },
       { isEquipped: false }
     );
     
     // Equip selected racket
     const userRacket = await UserRacket.findOneAndUpdate(
-      { _id: userRacketId, userId: req.user._id },
+      { _id: userRacketId, userId: req.user._id.toString() },
       { isEquipped: true },
       { new: true }
-    ).populate('racketId');
+    );
     
     if (!userRacket) {
       return res.status(404).json({ error: 'Racket not found' });
     }
     
+    // Manually populate racket data
+    const racket = await Racket.findOne({ id: userRacket.racketId });
+    const populatedRacket = {
+      ...userRacket.toObject(),
+      racketId: racket
+    };
+    
     res.json({
       message: 'Racket equipped successfully',
-      racket: userRacket
+      racket: populatedRacket
     });
     
   } catch (error) {
@@ -305,26 +321,42 @@ router.get('/rental-market', authenticateToken, async (req: AuthRequest, res) =>
     
     const filter: any = { 
       isRented: false,
-      userId: { $ne: req.user._id } // Don't show user's own rackets
+      userId: { $ne: req.user._id.toString() }, // Don't show user's own rackets
+      rentPrice: { $exists: true, $ne: null }
     };
     
     const userRackets = await UserRacket.find(filter)
-      .populate('racketId')
-      .populate('userId', 'username avatar')
       .sort({ rentPrice: 1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit));
     
-    // Filter by populated racket rarity if specified
-    let filteredRackets = userRackets;
-    if (rarity) {
-      filteredRackets = userRackets.filter(ur => (ur.racketId as any).rarity === rarity);
+    // Manually populate data
+    const populatedRackets = [];
+    for (const userRacket of userRackets) {
+      const racket = await Racket.findOne({ id: userRacket.racketId });
+      const user = await User.findById(userRacket.userId).select('username avatar');
+      
+      if (racket && user) {
+        const populatedRacket = {
+          ...userRacket.toObject(),
+          racketId: racket,
+          userId: {
+            username: user.username,
+            avatar: user.avatar
+          }
+        };
+        
+        // Filter by rarity if specified
+        if (!rarity || racket.rarity === rarity) {
+          populatedRackets.push(populatedRacket);
+        }
+      }
     }
     
     const total = await UserRacket.countDocuments(filter);
     
     res.json({
-      rackets: filteredRackets,
+      rackets: populatedRackets,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -333,6 +365,7 @@ router.get('/rental-market', authenticateToken, async (req: AuthRequest, res) =>
       }
     });
   } catch (error) {
+    console.error('Error fetching rental market:', error);
     res.status(500).json({ error: 'Failed to fetch rental market' });
   }
 });
@@ -465,19 +498,34 @@ router.post('/rent', authenticateToken, async (req: AuthRequest, res) => {
 router.get('/my-rentals', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const rentedRackets = await UserRacket.find({ 
-      rentedTo: req.user._id,
+      rentedTo: req.user._id.toString(),
       isRented: true,
       rentExpiresAt: { $gt: new Date() }
     })
-      .populate('racketId')
-      .populate({
-        path: 'userId',
-        select: 'username avatar'
-      })
       .sort({ rentExpiresAt: 1 });
     
-    res.json(rentedRackets);
+    // Manually populate data
+    const populatedRackets = [];
+    for (const userRacket of rentedRackets) {
+      const racket = await Racket.findOne({ id: userRacket.racketId });
+      const user = await User.findById(userRacket.userId).select('username avatar');
+      
+      if (racket && user) {
+        const populatedRacket = {
+          ...userRacket.toObject(),
+          racketId: racket,
+          userId: {
+            username: user.username,
+            avatar: user.avatar
+          }
+        };
+        populatedRackets.push(populatedRacket);
+      }
+    }
+    
+    res.json(populatedRackets);
   } catch (error) {
+    console.error('Error fetching rented rackets:', error);
     res.status(500).json({ error: 'Failed to fetch rented rackets' });
   }
 });
