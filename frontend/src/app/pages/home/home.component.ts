@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss']
 })
+export class HomeComponent implements OnInit, OnDestroy {
   isAuthenticated = false;
   onlinePlayers = 1247;
   platformStats = {
