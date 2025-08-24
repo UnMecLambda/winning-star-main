@@ -19,7 +19,7 @@ export class RacketShopComponent implements OnInit {
 
   // Rental properties
   rentalMarket: RentalRacket[] = [];
-  myRentals: UserRacket[] = [];
+  myRentals: RentalRacket[] = [];
   showRentModal = false;
   selectedRacketForRent?: UserRacket;
   rentPrice = 100;
@@ -44,7 +44,7 @@ export class RacketShopComponent implements OnInit {
         this.racketService.getMyRackets().toPromise(),
         this.userService.getProfile().toPromise(),
         this.racketService.getRentalMarket().toPromise(),
-        this.racketService.getMyRentals().toPromise()
+        this.racketService.getMyRentalsWithOwner().toPromise()
       ]);
 
       this.rackets = rackets || [];

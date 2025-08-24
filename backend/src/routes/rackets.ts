@@ -470,7 +470,10 @@ router.get('/my-rentals', authenticateToken, async (req: AuthRequest, res) => {
       rentExpiresAt: { $gt: new Date() }
     })
       .populate('racketId')
-      .populate('userId', 'username avatar')
+      .populate({
+        path: 'userId',
+        select: 'username avatar'
+      })
       .sort({ rentExpiresAt: 1 });
     
     res.json(rentedRackets);

@@ -185,6 +185,10 @@ export class RacketService {
     return this.http.get<UserRacket[]>(`${this.apiUrl}/rackets/my-rentals`);
   }
 
+  getMyRentalsWithOwner(): Observable<RentalRacket[]> {
+    return this.http.get<RentalRacket[]>(`${this.apiUrl}/rackets/my-rentals`);
+  }
+
   removeFromRent(userRacketId: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/rackets/remove-from-rent`, { userRacketId });
   }
