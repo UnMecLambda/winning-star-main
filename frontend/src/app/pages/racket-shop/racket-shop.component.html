@@ -30,6 +30,20 @@
       >
         My Rackets
       </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'rental-market'"
+        (click)="activeTab = 'rental-market'"
+      >
+        Rental Market
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'my-rentals'"
+        (click)="activeTab = 'my-rentals'"
+      >
+        My Rentals
+      </button>
     </div>
 
     <!-- Loading -->
@@ -195,7 +209,137 @@
               <span *ngIf="!userRacket.isEquipped">Equip</span>
               <span *ngIf="userRacket.isEquipped">Equipped</span>
             </button>
+            <button 
+              class="btn btn-secondary btn-small"
+              *ngIf="!userRacket.isEquipped && !userRacket.isRented && !userRacket.rentPrice"
+              (click)="openRentModal(userRacket)"
+            >
+              Set for Rent
+            </button>
+            <button 
+              class="btn btn-outline btn-small"
+              *ngIf="userRacket.rentPrice && !userRacket.isRented"
+              (click)="removeFromRent(userRacket)"
+            >
+              Remove from Rent
+            </button>
+            <div class="rent-info" *ngIf="userRacket.rentPrice && !userRacket.isRented">
+              <small>For rent: {{ userRacket.rentPrice }} coins/{{ userRacket.rentDuration }}h</small>
+            </div>
+            <div class="rent-info" *ngIf="userRacket.isRented">
+              <small>Rented until: {{ userRacket.rentExpiresAt | date:'short' }}</small>
+            </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rental Market Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'rental-market' && !loading">
+      <div class="rental-market-grid">
+        <div class="rental-card" *ngFor="let rental of rentalMarket">
+          <div class="rental-header">
+            <h3>{{ rental.racketId.name }}</h3>
+            <span class="rarity-badge" [style.color]="getRarityColor(rental.racketId.rarity)">
+              {{ rental.racketId.rarity | titlecase }}
+            </span>
+          </div>
+
+          <div class="owner-info">
+            <img [src]="rental.userId.avatar || '/assets/avatars/default.png'" alt="Owner" class="owner-avatar">
+            <span>{{ rental.userId.username }}</span>
+          </div>
+
+          <div class="racket-visual">
+            <div class="racket-preview" 
+                 [style.background]="'linear-gradient(45deg, ' + rental.racketId.visualConfig.frameColor + ', ' + rental.racketId.visualConfig.handleColor + ')'">
+              🎾
+            </div>
+          </div>
+
+          <div class="rental-stats">
+            <div class="stat" *ngFor="let stat of ['power', 'control', 'speed', 'durability']">
+              <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
+              <span>{{ getStatValue(rental.totalStats, stat) }}</span>
+            </div>
+          </div>
+
+          <div class="rental-info">
+            <div class="rent-price">{{ rental.rentPrice }} coins</div>
+            <div class="rent-duration">{{ rental.rentDuration }} hours</div>
+          </div>
+
+          <button 
+            class="btn btn-primary"
+            [disabled]="userCoins < rental.rentPrice"
+            (click)="rentRacket(rental)"
+          >
+            Rent Now
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Rentals Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'my-rentals' && !loading">
+      <div class="my-rentals-grid">
+        <div class="rental-card" *ngFor="let rental of myRentals">
+          <div class="rental-header">
+            <h3>{{ rental.racketId.name }}</h3>
+            <span class="expires-badge">
+              Expires: {{ rental.rentExpiresAt | date:'short' }}
+            </span>
+          </div>
+
+          <div class="owner-info">
+            <img [src]="rental.userId.avatar || '/assets/avatars/default.png'" alt="Owner" class="owner-avatar">
+            <span>Owner: {{ rental.userId.username }}</span>
+          </div>
+
+          <div class="racket-visual">
+            <div class="racket-preview" 
+                 [style.background]="'linear-gradient(45deg, ' + rental.racketId.visualConfig.frameColor + ', ' + rental.racketId.visualConfig.handleColor + ')'">
+              🎾
+            </div>
+          </div>
+
+          <div class="rental-stats">
+            <div class="stat" *ngFor="let stat of ['power', 'control', 'speed', 'durability']">
+              <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
+              <span>{{ getStatValue(rental.totalStats, stat) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rent Modal -->
+    <div class="modal-overlay" *ngIf="showRentModal" (click)="closeRentModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <h3>Set Racket for Rent</h3>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Rent Price (coins per hour)</label>
+            <input type="number" [(ngModel)]="rentPrice" min="1" max="1000">
+          </div>
+          <div class="form-group">
+            <label>Duration (hours)</label>
+            <select [(ngModel)]="rentDuration">
+              <option value="1">1 hour</option>
+              <option value="6">6 hours</option>
+              <option value="12">12 hours</option>
+              <option value="24">24 hours</option>
+              <option value="48">48 hours</option>
+              <option value="72">72 hours</option>
+            </select>
+          </div>
+          <div class="total-price">
+            Total: {{ rentPrice * rentDuration }} coins
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" (click)="closeRentModal()">Cancel</button>
+          <button class="btn btn-primary" (click)="setForRent()">Set for Rent</button>
         </div>
       </div>
     </div>

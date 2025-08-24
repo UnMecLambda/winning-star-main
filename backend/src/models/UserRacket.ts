@@ -22,6 +22,12 @@ export interface IUserRacket extends Document {
   };
   gamesPlayed: number;
   isEquipped: boolean;
+  isRented: boolean;
+  rentedTo?: string;
+  rentPrice?: number;
+  rentDuration?: number; // in hours
+  rentExpiresAt?: Date;
+  totalEarnings: number;
   purchaseDate: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -72,6 +78,30 @@ const userRacketSchema = new Schema<IUserRacket>({
   isEquipped: {
     type: Boolean,
     default: false
+  },
+  isRented: {
+    type: Boolean,
+    default: false
+  },
+  rentedTo: {
+    type: String,
+    ref: 'User'
+  },
+  rentPrice: {
+    type: Number,
+    min: 0
+  },
+  rentDuration: {
+    type: Number, // in hours
+    min: 1
+  },
+  rentExpiresAt: {
+    type: Date
+  },
+  totalEarnings: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   purchaseDate: {
     type: Date,

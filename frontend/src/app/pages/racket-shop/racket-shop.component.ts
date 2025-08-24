@@ -17,6 +17,14 @@ export class RacketShopComponent implements OnInit {
   activeTab = 'rackets';
   selectedComponentType = 'all';
 
+  // Rental properties
+  rentalMarket: any[] = [];
+  myRentals: UserRacket[] = [];
+  showRentModal = false;
+  selectedRacketForRent?: UserRacket;
+  rentPrice = 100;
+  rentDuration = 24; // hours
+
   constructor(
     private racketService: RacketService,
     private userService: UserService,
@@ -30,17 +38,21 @@ export class RacketShopComponent implements OnInit {
   async loadData() {
     this.loading = true;
     try {
-      const [rackets, components, myRackets, user] = await Promise.all([
+      const [rackets, components, myRackets, user, rentalMarket, myRentals] = await Promise.all([
         this.racketService.getRackets().toPromise(),
         this.racketService.getComponents().toPromise(),
         this.racketService.getMyRackets().toPromise(),
-        this.userService.getProfile().toPromise()
+        this.userService.getProfile().toPromise(),
+        this.racketService.getRentalMarket().toPromise(),
+        this.racketService.getMyRentals().toPromise()
       ]);
 
       this.rackets = rackets || [];
       this.components = components || [];
       this.myRackets = myRackets || [];
       this.userCoins = user?.coins || 0;
+      this.rentalMarket = rentalMarket?.rackets || [];
+      this.myRentals = myRentals || [];
     } catch (error) {
       console.error('Failed to load shop data:', error);
     } finally {
@@ -102,6 +114,62 @@ export class RacketShopComponent implements OnInit {
       alert(`${userRacket.racketId.name} equipped!`);
     } catch (error: any) {
       alert(error.error?.error || 'Failed to equip racket');
+    }
+  }
+
+  openRentModal(userRacket: UserRacket) {
+    this.selectedRacketForRent = userRacket;
+    this.showRentModal = true;
+  }
+
+  closeRentModal() {
+    this.showRentModal = false;
+    this.selectedRacketForRent = undefined;
+    this.rentPrice = 100;
+    this.rentDuration = 24;
+  }
+
+  async setForRent() {
+    if (!this.selectedRacketForRent) return;
+
+    try {
+      await this.racketService.setForRent(
+        this.selectedRacketForRent._id, 
+        this.rentPrice, 
+        this.rentDuration
+      ).toPromise();
+      
+      await this.loadData(); // Refresh data
+      this.closeRentModal();
+      alert('Racket set for rent successfully!');
+    } catch (error: any) {
+      alert(error.error?.error || 'Failed to set racket for rent');
+    }
+  }
+
+  async rentRacket(racket: any) {
+    if (this.userCoins < racket.rentPrice) {
+      alert('Insufficient coins!');
+      return;
+    }
+
+    try {
+      const result = await this.racketService.rentRacket(racket._id).toPromise();
+      this.userCoins = result.newBalance;
+      await this.loadData(); // Refresh data
+      alert(`Successfully rented ${racket.racketId.name}!`);
+    } catch (error: any) {
+      alert(error.error?.error || 'Failed to rent racket');
+    }
+  }
+
+  async removeFromRent(userRacket: UserRacket) {
+    try {
+      await this.racketService.removeFromRent(userRacket._id).toPromise();
+      await this.loadData(); // Refresh data
+      alert('Racket removed from rental market!');
+    } catch (error: any) {
+      alert(error.error?.error || 'Failed to remove racket from rent');
     }
   }
 

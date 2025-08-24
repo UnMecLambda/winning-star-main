@@ -298,4 +298,218 @@ router.post('/equip', authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
+// List rackets available for rent
+router.get('/rental-market', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { page = 1, limit = 20, rarity, minPrice, maxPrice } = req.query;
+    
+    const filter: any = { 
+      isRented: false,
+      userId: { $ne: req.user._id } // Don't show user's own rackets
+    };
+    
+    const userRackets = await UserRacket.find(filter)
+      .populate('racketId')
+      .populate('userId', 'username avatar')
+      .sort({ rentPrice: 1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+    
+    // Filter by populated racket rarity if specified
+    let filteredRackets = userRackets;
+    if (rarity) {
+      filteredRackets = userRackets.filter(ur => (ur.racketId as any).rarity === rarity);
+    }
+    
+    const total = await UserRacket.countDocuments(filter);
+    
+    res.json({
+      rackets: filteredRackets,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch rental market' });
+  }
+});
+
+// Set racket for rent
+router.post('/set-for-rent', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { userRacketId, rentPrice, rentDuration } = req.body;
+    
+    const userRacket = await UserRacket.findOne({ 
+      _id: userRacketId, 
+      userId: req.user._id 
+    });
+    
+    if (!userRacket) {
+      return res.status(404).json({ error: 'Racket not found' });
+    }
+    
+    if (userRacket.isEquipped) {
+      return res.status(400).json({ error: 'Cannot rent equipped racket' });
+    }
+    
+    if (userRacket.isRented) {
+      return res.status(400).json({ error: 'Racket is already rented' });
+    }
+    
+    userRacket.rentPrice = rentPrice;
+    userRacket.rentDuration = rentDuration;
+    await userRacket.save();
+    
+    res.json({
+      message: 'Racket set for rent successfully',
+      racket: userRacket
+    });
+    
+  } catch (error) {
+    console.error('Set for rent error:', error);
+    res.status(500).json({ error: 'Failed to set racket for rent' });
+  }
+});
+
+// Rent a racket
+router.post('/rent', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { userRacketId } = req.body;
+    
+    const userRacket = await UserRacket.findById(userRacketId)
+      .populate('racketId')
+      .populate('userId', 'username');
+    
+    if (!userRacket) {
+      return res.status(404).json({ error: 'Racket not found' });
+    }
+    
+    if (userRacket.isRented) {
+      return res.status(400).json({ error: 'Racket is already rented' });
+    }
+    
+    if (!userRacket.rentPrice || !userRacket.rentDuration) {
+      return res.status(400).json({ error: 'Racket is not available for rent' });
+    }
+    
+    const renter = await User.findById(req.user._id);
+    const owner = await User.findById(userRacket.userId);
+    
+    if (!renter || !owner) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (renter.coins < userRacket.rentPrice) {
+      return res.status(400).json({ error: 'Insufficient coins' });
+    }
+    
+    // Process rental
+    const rentExpiresAt = new Date();
+    rentExpiresAt.setHours(rentExpiresAt.getHours() + userRacket.rentDuration);
+    
+    userRacket.isRented = true;
+    userRacket.rentedTo = req.user._id;
+    userRacket.rentExpiresAt = rentExpiresAt;
+    userRacket.totalEarnings += userRacket.rentPrice;
+    
+    // Transfer coins
+    renter.coins -= userRacket.rentPrice;
+    owner.coins += userRacket.rentPrice;
+    
+    // Create transactions
+    const renterTransaction = new Transaction({
+      userId: req.user._id,
+      type: 'rental_payment',
+      amount: -userRacket.rentPrice,
+      description: `Rented racket: ${(userRacket.racketId as any).name}`,
+      metadata: { racketId: userRacket._id },
+      balanceBefore: renter.coins + userRacket.rentPrice,
+      balanceAfter: renter.coins
+    });
+    
+    const ownerTransaction = new Transaction({
+      userId: userRacket.userId,
+      type: 'rental_income',
+      amount: userRacket.rentPrice,
+      description: `Rental income from: ${(userRacket.racketId as any).name}`,
+      metadata: { racketId: userRacket._id, renterId: req.user._id },
+      balanceBefore: owner.coins - userRacket.rentPrice,
+      balanceAfter: owner.coins
+    });
+    
+    await Promise.all([
+      userRacket.save(),
+      renter.save(),
+      owner.save(),
+      renterTransaction.save(),
+      ownerTransaction.save()
+    ]);
+    
+    res.json({
+      message: 'Racket rented successfully',
+      racket: userRacket,
+      expiresAt: rentExpiresAt,
+      newBalance: renter.coins
+    });
+    
+  } catch (error) {
+    console.error('Rent racket error:', error);
+    res.status(500).json({ error: 'Failed to rent racket' });
+  }
+});
+
+// Get rented rackets (as renter)
+router.get('/my-rentals', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const rentedRackets = await UserRacket.find({ 
+      rentedTo: req.user._id,
+      isRented: true,
+      rentExpiresAt: { $gt: new Date() }
+    })
+      .populate('racketId')
+      .populate('userId', 'username avatar')
+      .sort({ rentExpiresAt: 1 });
+    
+    res.json(rentedRackets);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch rented rackets' });
+  }
+});
+
+// Remove racket from rent
+router.post('/remove-from-rent', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { userRacketId } = req.body;
+    
+    const userRacket = await UserRacket.findOne({ 
+      _id: userRacketId, 
+      userId: req.user._id 
+    });
+    
+    if (!userRacket) {
+      return res.status(404).json({ error: 'Racket not found' });
+    }
+    
+    if (userRacket.isRented) {
+      return res.status(400).json({ error: 'Cannot remove rented racket from market' });
+    }
+    
+    userRacket.rentPrice = undefined;
+    userRacket.rentDuration = undefined;
+    await userRacket.save();
+    
+    res.json({
+      message: 'Racket removed from rental market',
+      racket: userRacket
+    });
+    
+  } catch (error) {
+    console.error('Remove from rent error:', error);
+    res.status(500).json({ error: 'Failed to remove racket from rent' });
+  }
+});
+
 export default router;

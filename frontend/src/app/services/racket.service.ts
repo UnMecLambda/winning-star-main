@@ -114,6 +114,40 @@ export class RacketService {
     return this.http.post(`${this.apiUrl}/rackets/equip`, { userRacketId });
   }
 
+  // Rental endpoints
+  getRentalMarket(page = 1, limit = 20, filters?: any): Observable<any> {
+    const params: { [key: string]: string } = {
+      page: page.toString(),
+      limit: limit.toString()
+    };
+    
+    if (filters?.rarity) params['rarity'] = filters.rarity;
+    if (filters?.minPrice) params['minPrice'] = filters.minPrice.toString();
+    if (filters?.maxPrice) params['maxPrice'] = filters.maxPrice.toString();
+    
+    return this.http.get(`${this.apiUrl}/rackets/rental-market`, { params });
+  }
+
+  setForRent(userRacketId: string, rentPrice: number, rentDuration: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/rackets/set-for-rent`, { 
+      userRacketId, 
+      rentPrice, 
+      rentDuration 
+    });
+  }
+
+  rentRacket(userRacketId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/rackets/rent`, { userRacketId });
+  }
+
+  getMyRentals(): Observable<UserRacket[]> {
+    return this.http.get<UserRacket[]>(`${this.apiUrl}/rackets/my-rentals`);
+  }
+
+  removeFromRent(userRacketId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/rackets/remove-from-rent`, { userRacketId });
+  }
+
   // Utility methods
   getRarityColor(rarity: string): string {
     switch (rarity) {
