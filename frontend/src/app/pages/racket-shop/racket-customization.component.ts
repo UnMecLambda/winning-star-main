@@ -169,4 +169,20 @@ export class RacketCustomizationComponent implements OnInit {
     if (component.effects.spinBonus) effects.push(`+${component.effects.spinBonus}% Spin`);
     return effects.join(', ');
   }
+
+  getStatValue(stats: any, stat: string): number {
+    return stats[stat] || 0;
+  }
+
+  isStatImproved(newStats: any, currentStats: any, stat: string): boolean {
+    return this.getStatValue(newStats, stat) > this.getStatValue(currentStats, stat);
+  }
+
+  isStatDecreased(newStats: any, currentStats: any, stat: string): boolean {
+    return this.getStatValue(newStats, stat) < this.getStatValue(currentStats, stat);
+  }
+
+  hasStatChanged(newStats: any, currentStats: any, stat: string): boolean {
+    return this.getStatValue(newStats, stat) !== this.getStatValue(currentStats, stat);
+  }
 }

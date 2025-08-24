@@ -61,9 +61,9 @@
               <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
               <span class="stat-name">{{ stat | titlecase }}</span>
               <div class="stat-bar">
-                <div class="stat-fill" [style.width.%]="racket.baseStats[stat]"></div>
+                <div class="stat-fill" [style.width.%]="getStatValue(racket.baseStats, stat)"></div>
               </div>
-              <span class="stat-value">{{ racket.baseStats[stat] }}</span>
+              <span class="stat-value">{{ getStatValue(racket.baseStats, stat) }}</span>
             </div>
           </div>
 
@@ -176,7 +176,7 @@
           <div class="total-stats">
             <div class="stat" *ngFor="let stat of ['power', 'control', 'speed', 'durability']">
               <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
-              <span>{{ userRacket.totalStats[stat] }}</span>
+              <span>{{ getStatValue(userRacket.totalStats, stat) }}</span>
             </div>
           </div>
 

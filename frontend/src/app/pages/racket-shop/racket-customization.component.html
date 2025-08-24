@@ -32,12 +32,12 @@
                 <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
                 <span class="stat-name">{{ stat | titlecase }}</span>
                 <div class="stat-values">
-                  <span class="current-value">{{ userRacket.totalStats[stat] }}</span>
-                  <span class="arrow" *ngIf="newStats[stat] !== userRacket.totalStats[stat]">→</span>
+                  <span class="current-value">{{ getStatValue(userRacket.totalStats, stat) }}</span>
+                  <span class="arrow" *ngIf="hasStatChanged(newStats, userRacket.totalStats, stat)">→</span>
                   <span class="new-value" 
-                        [class.improved]="newStats[stat] > userRacket.totalStats[stat]"
-                        [class.decreased]="newStats[stat] < userRacket.totalStats[stat]">
-                    {{ newStats[stat] }}
+                        [class.improved]="isStatImproved(newStats, userRacket.totalStats, stat)"
+                        [class.decreased]="isStatDecreased(newStats, userRacket.totalStats, stat)">
+                    {{ getStatValue(newStats, stat) }}
                   </span>
                 </div>
               </div>

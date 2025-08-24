@@ -86,7 +86,10 @@ export class RacketService {
   }
 
   getComponents(type?: string): Observable<RacketComponent[]> {
-    const params = type ? { type } : {};
+    const params: { [key: string]: string } = {};
+    if (type) {
+      params['type'] = type;
+    }
     return this.http.get<RacketComponent[]>(`${this.apiUrl}/rackets/components`, { params });
   }
 

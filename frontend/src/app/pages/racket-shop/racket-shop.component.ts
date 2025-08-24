@@ -131,6 +131,10 @@ export class RacketShopComponent implements OnInit {
     }
   }
 
+  getStatValue(stats: any, stat: string): number {
+    return stats[stat] || 0;
+  }
+
   getEffectText(component: RacketComponent): string {
     const effects = [];
     if (component.effects.powerBonus) effects.push(`+${component.effects.powerBonus} Power`);
