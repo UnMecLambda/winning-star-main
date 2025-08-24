@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -6,14 +6,14 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss']
 })
-export class HomeComponent implements OnInit {
   isAuthenticated = false;
-  onlinePlayers = 1247; // This would come from a service
+  onlinePlayers = 1247;
   platformStats = {
     totalPlayers: 15420,
     gamesPlayed: 89650,
     totalPayout: 12450
   };
+  private intervalId?: number;
 
   constructor(private authService: AuthService) {}
 
@@ -22,9 +22,15 @@ export class HomeComponent implements OnInit {
       this.isAuthenticated = isAuth;
     });
 
-    // Simulate online players count updates
-    setInterval(() => {
+    // Simulate online players count updates (every 30 seconds)
+    this.intervalId = window.setInterval(() => {
       this.onlinePlayers = Math.floor(Math.random() * 500) + 1000;
     }, 30000);
+  }
+
+  ngOnDestroy() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
   }
 }

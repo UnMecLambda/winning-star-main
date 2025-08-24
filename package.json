@@ -9,7 +9,7 @@
     "games"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:games\"",
+    "dev": "echo 'Lancez chaque service dans un terminal séparé:' && echo '1. npm run dev:backend' && echo '2. npm run dev:frontend' && echo '3. npm run dev:games'",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:games": "cd games && npm run dev",
