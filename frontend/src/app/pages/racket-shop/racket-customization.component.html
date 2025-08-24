@@ -1,0 +1,137 @@
+<div class="customization-container">
+  <div class="container">
+    <div class="customization-header">
+      <button class="btn btn-outline" routerLink="/racket-shop">
+        ← Back to Shop
+      </button>
+      <h1>Customize Racket</h1>
+    </div>
+
+    <div class="loading" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Loading customization options...</p>
+    </div>
+
+    <div class="customization-content" *ngIf="!loading && userRacket">
+      <div class="customization-grid">
+        <!-- Current Racket Preview -->
+        <div class="racket-preview-section">
+          <div class="racket-card">
+            <h3>{{ userRacket.racketId.name }}</h3>
+            <div class="racket-visual">
+              <div class="racket-preview" 
+                   [style.background]="'linear-gradient(45deg, ' + userRacket.racketId.visualConfig.frameColor + ', ' + userRacket.racketId.visualConfig.handleColor + ')'">
+                🎾
+              </div>
+            </div>
+
+            <!-- Current Stats vs New Stats -->
+            <div class="stats-comparison" *ngIf="calculateNewStats() as newStats">
+              <h4>Stats Comparison</h4>
+              <div class="stat-row" *ngFor="let stat of ['power', 'control', 'speed', 'durability']">
+                <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
+                <span class="stat-name">{{ stat | titlecase }}</span>
+                <div class="stat-values">
+                  <span class="current-value">{{ userRacket.totalStats[stat] }}</span>
+                  <span class="arrow" *ngIf="newStats[stat] !== userRacket.totalStats[stat]">→</span>
+                  <span class="new-value" 
+                        [class.improved]="newStats[stat] > userRacket.totalStats[stat]"
+                        [class.decreased]="newStats[stat] < userRacket.totalStats[stat]">
+                    {{ newStats[stat] }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Special Stats -->
+              <div class="special-stats">
+                <div class="special-stat">
+                  <strong>Fury Rate:</strong> 
+                  <span [class.improved]="newStats.furyRate > userRacket.totalStats.furyRate">
+                    {{ newStats.furyRate | number:'1.2-2' }}x
+                  </span>
+                </div>
+                <div class="special-stat">
+                  <strong>Ball Speed:</strong> 
+                  <span [class.improved]="newStats.ballSpeed > userRacket.totalStats.ballSpeed">
+                    {{ newStats.ballSpeed | number:'1.2-2' }}x
+                  </span>
+                </div>
+                <div class="special-stat">
+                  <strong>Spin:</strong> 
+                  <span [class.improved]="newStats.spin > userRacket.totalStats.spin">
+                    {{ newStats.spin | number:'1.2-2' }}x
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              class="btn btn-primary btn-large"
+              [disabled]="saving"
+              (click)="saveCustomization()"
+            >
+              <span *ngIf="!saving">Save Customization</span>
+              <span *ngIf="saving">Saving...</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Component Selection -->
+        <div class="components-section">
+          <div class="component-category" *ngFor="let type of ['strings', 'handle', 'grip_tape', 'dampener']">
+            <h3>
+              <lucide-icon [name]="getComponentTypeIcon(type)"></lucide-icon>
+              {{ type === 'grip_tape' ? 'Grip Tape' : (type | titlecase) }}
+            </h3>
+
+            <div class="current-selection" *ngIf="getSelectedComponent(type) as selected">
+              <div class="selected-component">
+                <strong>Selected:</strong> {{ selected.name }}
+                <span class="rarity" [style.color]="getRarityColor(selected.rarity)">
+                  ({{ selected.rarity | titlecase }})
+                </span>
+              </div>
+              <div class="selected-effects">{{ getEffectText(selected) }}</div>
+            </div>
+
+            <div class="components-grid">
+              <div class="component-option" 
+                   *ngFor="let component of availableComponents[type]"
+                   [class.selected]="isComponentSelected(type, component.id)"
+                   [style.border-color]="getRarityColor(component.rarity)"
+                   (click)="selectComponent(type, component.id)">
+                
+                <div class="component-header">
+                  <h4>{{ component.name }}</h4>
+                  <span class="rarity" [style.color]="getRarityColor(component.rarity)">
+                    {{ component.rarity | titlecase }}
+                  </span>
+                </div>
+
+                <p class="component-description">{{ component.description }}</p>
+                
+                <div class="component-effects">
+                  {{ getEffectText(component) }}
+                </div>
+
+                <div class="component-visual" [style.background-color]="component.visualConfig.color">
+                  <div class="texture-preview">{{ component.visualConfig.texture }}</div>
+                </div>
+              </div>
+
+              <!-- None Option -->
+              <div class="component-option none-option" 
+                   [class.selected]="!selectedComponents[type]"
+                   (click)="selectComponent(type, '')">
+                <div class="component-header">
+                  <h4>None</h4>
+                </div>
+                <p class="component-description">No {{ type === 'grip_tape' ? 'grip tape' : type }} equipped</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

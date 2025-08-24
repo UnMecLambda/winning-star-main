@@ -54,5 +54,10 @@ export const routes: Routes = [
     loadChildren: () => import('./pages/pong/pong.module').then(m => m.PongModule),
     canActivate: [AuthGuard]
   },
+  { 
+    path: 'racket-shop', 
+    loadChildren: () => import('./pages/racket-shop/racket-shop.module').then(m => m.RacketShopModule),
+    canActivate: [AuthGuard]
+  },
   { path: '**', redirectTo: '/home' }
 ];

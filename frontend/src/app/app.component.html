@@ -9,7 +9,7 @@
       <div class="nav-links" *ngIf="!isMobile">
         <a routerLink="/home" routerLinkActive="active">Home</a>
         <a routerLink="/play" routerLinkActive="active">Play</a>
-        <a routerLink="/store" routerLinkActive="active">Store</a>
+        <a routerLink="/racket-shop" routerLinkActive="active">Racket Shop</a>
         <a routerLink="/leaderboard" routerLinkActive="active">Leaderboard</a>
         <a routerLink="/inventory" routerLinkActive="active" *ngIf="isAuthenticated">Inventory</a>
       </div>
@@ -51,7 +51,7 @@
     <div class="mobile-menu" *ngIf="showMobileMenu && isMobile">
       <a routerLink="/home" (click)="closeMobileMenu()">Home</a>
       <a routerLink="/play" (click)="closeMobileMenu()">Play</a>
-      <a routerLink="/store" (click)="closeMobileMenu()">Store</a>
+      <a routerLink="/racket-shop" (click)="closeMobileMenu()">Racket Shop</a>
       <a routerLink="/leaderboard" (click)="closeMobileMenu()">Leaderboard</a>
       <a routerLink="/inventory" (click)="closeMobileMenu()" *ngIf="isAuthenticated">Inventory</a>
       <hr *ngIf="isAuthenticated">

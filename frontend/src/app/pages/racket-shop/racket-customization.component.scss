@@ -1,0 +1,324 @@
+.customization-container {
+  min-height: 100vh;
+  padding: 2rem 0;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+}
+
+.customization-header {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2d3748;
+  }
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #e2e8f0;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+}
+
+.customization-grid {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 3rem;
+}
+
+.racket-preview-section {
+  .racket-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 2rem;
+
+    h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #2d3748;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .racket-visual {
+      text-align: center;
+      margin-bottom: 2rem;
+
+      .racket-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin: 0 auto;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    .stats-comparison {
+      margin-bottom: 2rem;
+
+      h4 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 1rem;
+      }
+
+      .stat-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+
+        lucide-icon {
+          width: 18px;
+          height: 18px;
+          color: #667eea;
+        }
+
+        .stat-name {
+          flex: 1;
+          font-weight: 500;
+          color: #4a5568;
+        }
+
+        .stat-values {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+
+          .current-value {
+            color: #6b7280;
+          }
+
+          .arrow {
+            color: #667eea;
+          }
+
+          .new-value {
+            font-weight: 600;
+            
+            &.improved {
+              color: #10b981;
+            }
+
+            &.decreased {
+              color: #ef4444;
+            }
+          }
+        }
+      }
+
+      .special-stats {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+
+        .special-stat {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+
+          span.improved {
+            color: #10b981;
+            font-weight: 600;
+          }
+        }
+      }
+    }
+
+    .btn-large {
+      width: 100%;
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+    }
+  }
+}
+
+.components-section {
+  .component-category {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 1.5rem;
+
+      lucide-icon {
+        width: 24px;
+        height: 24px;
+        color: #667eea;
+      }
+    }
+
+    .current-selection {
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+
+      .selected-component {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+
+        .rarity {
+          font-weight: 500;
+        }
+      }
+
+      .selected-effects {
+        font-size: 0.875rem;
+        color: #4a5568;
+      }
+    }
+
+    .components-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .component-option {
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      &.selected {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.05);
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+      }
+
+      &.none-option {
+        border-color: #9ca3af;
+        border-style: dashed;
+
+        &.selected {
+          border-color: #667eea;
+          border-style: solid;
+        }
+      }
+
+      .component-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+
+        h4 {
+          font-size: 1rem;
+          font-weight: 600;
+          color: #2d3748;
+        }
+
+        .rarity {
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+      }
+
+      .component-description {
+        color: #6b7280;
+        font-size: 0.875rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .component-effects {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 6px;
+        padding: 0.5rem;
+        font-size: 0.75rem;
+        color: #374151;
+        margin-bottom: 0.75rem;
+      }
+
+      .component-visual {
+        height: 40px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+        .texture-preview {
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Mobile Responsive
+@media (max-width: 1024px) {
+  .customization-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .racket-preview-section .racket-card {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .customization-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+
+    h1 {
+      font-size: 2rem;
+    }
+  }
+
+  .components-section .component-category .components-grid {
+    grid-template-columns: 1fr;
+  }
+}

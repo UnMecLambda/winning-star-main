@@ -36,6 +36,13 @@ export class GameScene extends Phaser.Scene {
   private rallyHits = 0;
   private server: PlayerSide = 'bottom';
   private serving = true;
+  private racketStats = {
+    furyRate: 1,
+    ballSpeed: 1,
+    spin: 1,
+    power: 50,
+    control: 50
+  };
 
   private lastStateSent = 0;
 
@@ -46,6 +53,10 @@ export class GameScene extends Phaser.Scene {
 
   create(){
     const w = this.scale.width, h = this.scale.height;
+    
+    // Load racket stats from user data (would come from API)
+    this.loadRacketStats();
+    
     const courtMargin = 60;
     const courtW = w - courtMargin*2;
     const courtH = h - 260;
@@ -156,17 +167,20 @@ export class GameScene extends Phaser.Scene {
 
   private launchServe(){
     this.serving = false;
-    const base = 420;
+    const base = 420 * this.racketStats.ballSpeed;
     const angle = (this.mySide==='bottom') ? Phaser.Math.Between(-50, -20) : Phaser.Math.Between(20, 50);
     const v = new Phaser.Math.Vector2();
-    this.physics.velocityFromAngle(angle, base * (1 + this.fury * 0.002), v);
+    const powerMultiplier = 1 + (this.racketStats.power - 50) / 100;
+    this.physics.velocityFromAngle(angle, base * (1 + this.fury * 0.002) * powerMultiplier, v);
     this.ball.setVelocity(v.x, v.y);
     this.sendInput({ type:'serve', vx: v.x, vy: v.y, x: this.ball.x, y: this.ball.y });
   }
 
   private hitBall(who: 'me'|'opp'){
     this.rallyHits++;
-    this.fury = Math.min(100, this.fury + 8);
+    // Apply racket fury rate bonus
+    const furyGain = 8 * (who === 'me' ? this.racketStats.furyRate : 1);
+    this.fury = Math.min(100, this.fury + furyGain);
     this.updateFuryBar();
     
     const player = (who === 'me') ? this.me : this.opp;
@@ -187,7 +201,12 @@ export class GameScene extends Phaser.Scene {
     const baseSpeed = 380;
     const rallyBonus = Math.min(220, this.rallyHits * 8);
     const furyBonus = this.fury * 1.5;
-    const speed = baseSpeed + rallyBonus + furyBonus;
+    
+    // Apply racket bonuses
+    const racketSpeedBonus = who === 'me' ? (this.racketStats.ballSpeed - 1) * baseSpeed : 0;
+    const racketPowerBonus = who === 'me' ? (this.racketStats.power - 50) * 2 : 0;
+    
+    const speed = baseSpeed + rallyBonus + furyBonus + racketSpeedBonus + racketPowerBonus;
     
     // Convert to velocity vector
     const v = new Phaser.Math.Vector2();
@@ -197,8 +216,25 @@ export class GameScene extends Phaser.Scene {
     
     // Ensure minimum vertical speed to avoid horizontal balls
     const minVerticalSpeed = speed * 0.3;
+    
+    // Apply control bonus for more precise shots
+    if (who === 'me') {
+      const controlFactor = this.racketStats.control / 100;
+      const angleVariation = (1 - controlFactor) * 10; // Less variation with higher control
+      const randomVariation = (Math.random() - 0.5) * angleVariation;
+      const adjustedRadians = Phaser.Math.DegToRad(angle + randomVariation);
+      v.x = Math.sin(adjustedRadians) * speed;
+      v.y = direction * Math.cos(adjustedRadians) * speed;
+    }
+    
     if (Math.abs(v.y) < minVerticalSpeed) {
       v.y = direction * minVerticalSpeed;
+    }
+    
+    // Apply spin effect (visual effect for now)
+    if (who === 'me' && this.racketStats.spin > 1) {
+      // Add spin visual effect
+      this.addSpinEffect();
     }
     
     this.ball.setVelocity(v.x, v.y);
@@ -212,7 +248,9 @@ export class GameScene extends Phaser.Scene {
     if(side==='bottom') this.scoreBottom++; else this.scoreTop++;
     this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
     this.server = (this.server==='bottom') ? 'top' : 'bottom';
-    this.fury = Math.max(0, this.fury - 25);
+    // Reduce fury less with better racket durability
+    const furyLoss = 25 * (1 - (this.racketStats.power - 50) / 200);
+    this.fury = Math.max(0, this.fury - furyLoss);
     this.updateFuryBar();
     this.resetForServe();
   }
@@ -288,5 +326,42 @@ export class GameScene extends Phaser.Scene {
     if(this.toast) this.toast.destroy();
     this.toast = this.add.text(this.scale.width/2, 60, msg, { fontFamily:'Arial', fontSize:'20px', color:'#fff', backgroundColor:'#0008', padding:{x:10,y:6}}).setOrigin(0.5);
     this.tweens.add({ targets:this.toast, alpha:0, duration:1600, delay:800, onComplete: ()=> this.toast?.destroy() });
+  }
+  
+  private loadRacketStats() {
+    // This would normally load from the user's equipped racket via API
+    // For now, we'll use default values or parse from URL params
+    const params = new URLSearchParams(location.search);
+    const statsParam = params.get('racketStats');
+    
+    if (statsParam) {
+      try {
+        const stats = JSON.parse(decodeURIComponent(statsParam));
+        this.racketStats = {
+          furyRate: stats.furyRate || 1,
+          ballSpeed: stats.ballSpeed || 1,
+          spin: stats.spin || 1,
+          power: stats.power || 50,
+          control: stats.control || 50
+        };
+      } catch (e) {
+        console.warn('Failed to parse racket stats from URL');
+      }
+    }
+  }
+  
+  private addSpinEffect() {
+    // Add visual spin effect to the ball
+    const spinParticles = this.add.particles(this.ball.x, this.ball.y, 'white', {
+      scale: { start: 0.1, end: 0 },
+      speed: { min: 20, max: 40 },
+      lifespan: 200,
+      quantity: 3
+    });
+    
+    // Clean up particles after a short time
+    this.time.delayedCall(300, () => {
+      spinParticles.destroy();
+    });
   }
 }

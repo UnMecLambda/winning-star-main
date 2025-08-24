@@ -1,0 +1,203 @@
+<div class="racket-shop-container">
+  <div class="container">
+    <div class="shop-header">
+      <h1>Racket Shop</h1>
+      <div class="coins-display">
+        <lucide-icon name="star"></lucide-icon>
+        <span>{{ userCoins | number }} coins</span>
+      </div>
+    </div>
+
+    <div class="shop-tabs">
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'rackets'"
+        (click)="activeTab = 'rackets'"
+      >
+        Rackets
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'components'"
+        (click)="activeTab = 'components'"
+      >
+        Components
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'my-rackets'"
+        (click)="activeTab = 'my-rackets'"
+      >
+        My Rackets
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Loading shop...</p>
+    </div>
+
+    <!-- Rackets Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'rackets' && !loading">
+      <div class="rackets-grid">
+        <div class="racket-card" *ngFor="let racket of rackets" [style.background]="getRarityGradient(racket.rarity)">
+          <div class="racket-header">
+            <h3>{{ racket.name }}</h3>
+            <span class="rarity-badge" [style.color]="getRarityColor(racket.rarity)">{{ racket.rarity | titlecase }}</span>
+          </div>
+          
+          <div class="racket-visual">
+            <div class="racket-preview" 
+                 [style.background]="'linear-gradient(45deg, ' + racket.visualConfig.frameColor + ', ' + racket.visualConfig.handleColor + ')'">
+              🎾
+            </div>
+          </div>
+
+          <p class="racket-description">{{ racket.description }}</p>
+
+          <div class="stats-grid">
+            <div class="stat" *ngFor="let stat of ['power', 'control', 'speed', 'durability']">
+              <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
+              <span class="stat-name">{{ stat | titlecase }}</span>
+              <div class="stat-bar">
+                <div class="stat-fill" [style.width.%]="racket.baseStats[stat]"></div>
+              </div>
+              <span class="stat-value">{{ racket.baseStats[stat] }}</span>
+            </div>
+          </div>
+
+          <div class="racket-actions">
+            <div class="price">{{ racket.basePrice | number }} coins</div>
+            <button 
+              class="btn btn-primary"
+              [disabled]="userCoins < racket.basePrice || myRackets.some(r => r.racketId.id === racket.id)"
+              (click)="purchaseRacket(racket)"
+            >
+              <lucide-icon name="shopping-cart"></lucide-icon>
+              <span *ngIf="!myRackets.some(r => r.racketId.id === racket.id)">Buy</span>
+              <span *ngIf="myRackets.some(r => r.racketId.id === racket.id)">Owned</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Components Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'components' && !loading">
+      <div class="component-filters">
+        <button 
+          class="filter-btn" 
+          [class.active]="selectedComponentType === 'all'"
+          (click)="selectedComponentType = 'all'"
+        >
+          All
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="selectedComponentType === 'strings'"
+          (click)="selectedComponentType = 'strings'"
+        >
+          Strings
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="selectedComponentType === 'handle'"
+          (click)="selectedComponentType = 'handle'"
+        >
+          Handles
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="selectedComponentType === 'grip_tape'"
+          (click)="selectedComponentType = 'grip_tape'"
+        >
+          Grip Tape
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="selectedComponentType === 'dampener'"
+          (click)="selectedComponentType = 'dampener'"
+        >
+          Dampeners
+        </button>
+      </div>
+
+      <div class="components-grid">
+        <div class="component-card" *ngFor="let component of filteredComponents" [style.border-color]="getRarityColor(component.rarity)">
+          <div class="component-header">
+            <h4>{{ component.name }}</h4>
+            <span class="rarity-badge" [style.color]="getRarityColor(component.rarity)">{{ component.rarity | titlecase }}</span>
+          </div>
+          
+          <div class="component-type">{{ component.type | titlecase }}</div>
+          <p class="component-description">{{ component.description }}</p>
+          
+          <div class="component-effects">
+            <strong>Effects:</strong> {{ getEffectText(component) }}
+          </div>
+
+          <div class="component-actions">
+            <div class="price">{{ component.price | number }} coins</div>
+            <button 
+              class="btn btn-primary btn-small"
+              [disabled]="userCoins < component.price"
+              (click)="purchaseComponent(component)"
+            >
+              <lucide-icon name="shopping-cart"></lucide-icon>
+              Buy
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Rackets Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'my-rackets' && !loading">
+      <div class="my-rackets-grid">
+        <div class="my-racket-card" *ngFor="let userRacket of myRackets" [class.equipped]="userRacket.isEquipped">
+          <div class="racket-header">
+            <h3>{{ userRacket.racketId.name }}</h3>
+            <span class="equipped-badge" *ngIf="userRacket.isEquipped">Equipped</span>
+          </div>
+
+          <div class="racket-visual">
+            <div class="racket-preview" 
+                 [style.background]="'linear-gradient(45deg, ' + userRacket.racketId.visualConfig.frameColor + ', ' + userRacket.racketId.visualConfig.handleColor + ')'">
+              🎾
+            </div>
+          </div>
+
+          <div class="durability-bar">
+            <div class="durability-fill" [style.width.%]="userRacket.durability"></div>
+            <span class="durability-text">{{ userRacket.durability }}% Durability</span>
+          </div>
+
+          <div class="total-stats">
+            <div class="stat" *ngFor="let stat of ['power', 'control', 'speed', 'durability']">
+              <lucide-icon [name]="getStatIcon(stat)"></lucide-icon>
+              <span>{{ userRacket.totalStats[stat] }}</span>
+            </div>
+          </div>
+
+          <div class="racket-actions">
+            <button 
+              class="btn btn-outline btn-small"
+              (click)="customizeRacket(userRacket)"
+            >
+              Customize
+            </button>
+            <button 
+              class="btn btn-primary btn-small"
+              [disabled]="userRacket.isEquipped"
+              (click)="equipRacket(userRacket)"
+            >
+              <span *ngIf="!userRacket.isEquipped">Equip</span>
+              <span *ngIf="userRacket.isEquipped">Equipped</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
