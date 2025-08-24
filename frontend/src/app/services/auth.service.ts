@@ -64,18 +64,24 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    }
     this.isAuthenticatedSubject.next(false);
   }
 
   refreshToken(): Observable<{ accessToken: string }> {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = typeof window !== 'undefined' && window.localStorage 
+      ? localStorage.getItem('refreshToken') 
+      : null;
     return this.http.post<{ accessToken: string }>(`${this.apiUrl}/auth/refresh`, {
       refreshToken
     }).pipe(
       tap(response => {
-        localStorage.setItem('accessToken', response.accessToken);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('accessToken', response.accessToken);
+        }
       })
     );
   }
@@ -85,15 +91,23 @@ export class AuthService {
   }
 
   getAccessToken(): string | null {
-    return localStorage.getItem('accessToken');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return localStorage.getItem('accessToken');
+    }
+    return null;
   }
 
   private setTokens(tokens: { accessToken: string; refreshToken: string }): void {
-    localStorage.setItem('accessToken', tokens.accessToken);
-    localStorage.setItem('refreshToken', tokens.refreshToken);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('accessToken', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
+    }
   }
 
   private hasToken(): boolean {
-    return !!localStorage.getItem('accessToken');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return !!localStorage.getItem('accessToken');
+    }
+    return false;
   }
 }
