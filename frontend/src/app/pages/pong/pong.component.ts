@@ -21,6 +21,7 @@ export class PongComponent {
   private async loadGameWithRacketStats() {
     const token = this.auth.getAccessToken();
     let racketStatsParam = '';
+    let racketVisualParam = '';
     
     try {
       // Get user's equipped racket stats
@@ -36,11 +37,55 @@ export class PongComponent {
           control: equippedRacket.totalStats.control
         };
         racketStatsParam = `&racketStats=${encodeURIComponent(JSON.stringify(racketStats))}`;
+        
+        // Get visual customization
+        const racketVisual = await this.buildRacketVisual(equippedRacket);
+        racketVisualParam = `&racket=${encodeURIComponent(JSON.stringify(racketVisual))}`;
       }
     } catch (error) {
       console.warn('Failed to load racket stats for game:', error);
     }
     
-    this.url = `${environment.gameUrl}/?token=${encodeURIComponent(token || '')}&api=${encodeURIComponent(environment.apiUrl.replace('/api',''))}${racketStatsParam}`;
+    this.url = `${environment.gameUrl}/?token=${encodeURIComponent(token || '')}&api=${encodeURIComponent(environment.apiUrl.replace('/api',''))}${racketStatsParam}${racketVisualParam}`;
+  }
+  
+  private async buildRacketVisual(equippedRacket: any): Promise<any> {
+    const visual: any = {
+      frameColor: equippedRacket.racketId.visualConfig.frameColor,
+      handleColor: equippedRacket.racketId.visualConfig.handleColor,
+      stringsColor: '#FFFFFF' // Default strings color
+    };
+    
+    // Add customization colors based on components
+    try {
+      if (equippedRacket.customization.strings) {
+        const components = await this.racketService.getComponents('strings').toPromise();
+        const stringsComponent = components?.find(c => c.id === equippedRacket.customization.strings);
+        if (stringsComponent) {
+          visual.stringsColor = stringsComponent.visualConfig.color;
+        }
+      }
+      
+      if (equippedRacket.customization.handle) {
+        const components = await this.racketService.getComponents('handle').toPromise();
+        const handleComponent = components?.find(c => c.id === equippedRacket.customization.handle);
+        if (handleComponent) {
+          visual.handleColor = handleComponent.visualConfig.color;
+        }
+      }
+      
+      if (equippedRacket.customization.gripTape) {
+        const components = await this.racketService.getComponents('grip_tape').toPromise();
+        const gripComponent = components?.find(c => c.id === equippedRacket.customization.gripTape);
+        if (gripComponent) {
+          visual.gripTape = true;
+          visual.gripTapeColor = gripComponent.visualConfig.color;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load component visuals:', error);
+    }
+    
+    return visual;
   }
 }

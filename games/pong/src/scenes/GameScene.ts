@@ -74,8 +74,9 @@ export class GameScene extends Phaser.Scene {
     this.opp = this.physics.add.image(w/2, courtY + 40, '')
       .setCircle(20).setTint(0x222244).setImmovable(true);
 
-    this.myPaddle = this.add.rectangle(this.me.x, this.me.y - 24, 140, 16, 0xffffff).setDepth(3);
-    this.oppPaddle = this.add.rectangle(this.opp.x, this.opp.y + 24, 140, 16, 0xffffff).setDepth(3);
+    // Create racket visuals with customization
+    this.myPaddle = this.createRacketVisual(this.me.x, this.me.y - 24, true);
+    this.oppPaddle = this.createRacketVisual(this.opp.x, this.opp.y + 24, false);
 
     this.ball = this.physics.add.image(w/2, h/2, '').setCircle(10).setTint(0xffde59);
     this.ball.setBounce(1, 1);
@@ -84,6 +85,21 @@ export class GameScene extends Phaser.Scene {
     this.scoreText = this.add.text(w/2, 24, '0 : 0', { fontFamily: 'Arial', fontSize: '28px', color: '#fff' }).setOrigin(0.5,0);
     this.furyBar = this.add.rectangle(20, h/2, 14, 0, 0xffcc00).setOrigin(0.5,1);
 
+    // Add menu button
+    const menuBtn = this.add.rectangle(w - 60, 30, 100, 40, 0x333333)
+      .setStrokeStyle(2, 0x666666)
+      .setInteractive()
+      .on('pointerdown', () => {
+        window.location.href = window.location.origin + '/play';
+      })
+      .on('pointerover', () => menuBtn.setFillStyle(0x555555))
+      .on('pointerout', () => menuBtn.setFillStyle(0x333333));
+    
+    this.add.text(w - 60, 30, 'Menu', { 
+      fontFamily: 'Arial', 
+      fontSize: '16px', 
+      color: '#fff' 
+    }).setOrigin(0.5);
     const left = this.court.x - courtW/2 + 10;
     const right = this.court.x + courtW/2 - 10;
     const top = this.court.y - courtH/2 + 10;
@@ -98,10 +114,10 @@ export class GameScene extends Phaser.Scene {
       const targetX = Phaser.Math.Clamp(p.x, left+40, right-40);
       if(this.mySide==='bottom'){
         this.me.setPosition(targetX, targetY);
-        this.myPaddle.setPosition(this.me.x, this.me.y - 24);
+        this.updateRacketPosition(this.myPaddle, this.me.x, this.me.y - 24);
       } else {
         this.me.setPosition(targetX, Phaser.Math.Clamp(p.y, top, this.court.y));
-        this.myPaddle.setPosition(this.me.x, this.me.y + 24);
+        this.updateRacketPosition(this.myPaddle, this.me.x, this.me.y + 24);
       }
       this.sendInput({ type:'move', x:this.me.x, y:this.me.y });
     });
@@ -116,7 +132,7 @@ export class GameScene extends Phaser.Scene {
     const backendUrl = (window as any).IBET_BACKEND_URL || (new URLSearchParams(location.search).get('api') || 'http://localhost:4000');
     if(this.token){
       // lazy import to avoid SSR constraints
-      import('../network/GameSocket').then(({ GameSocket }) => {
+            this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y + 24);
         this.socket = new GameSocket(backendUrl, this.token);
         this.bindSocket();
       });
@@ -268,10 +284,10 @@ export class GameScene extends Phaser.Scene {
       case 'move':
         if(this.mySide==='bottom'){
           this.opp.setPosition(input.x, input.y);
-          this.oppPaddle.setPosition(this.opp.x, this.opp.y + 24);
+          this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y + 24);
         } else {
           this.opp.setPosition(input.x, input.y);
-          this.oppPaddle.setPosition(this.opp.x, this.opp.y - 24);
+          this.updateRacketPosition(this.oppPaddle, this.opp.x, this.opp.y - 24);
         }
         break;
       case 'serve':
@@ -348,6 +364,91 @@ export class GameScene extends Phaser.Scene {
         console.warn('Failed to parse racket stats from URL');
       }
     }
+  }
+  
+  private createRacketVisual(x: number, y: number, isMyRacket: boolean): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y);
+    
+    // Get racket data from URL params or use defaults
+    const racketData = this.getRacketData(isMyRacket);
+    
+    // Create racket frame (main body)
+    const frame = this.add.rectangle(0, 0, 120, 12, racketData.frameColor)
+      .setStrokeStyle(1, 0x000000);
+    
+    // Create handle
+    const handle = this.add.rectangle(0, 0, 20, 12, racketData.handleColor)
+      .setStrokeStyle(1, 0x000000);
+    
+    // Create strings pattern
+    const strings = this.add.group();
+    for(let i = -50; i <= 50; i += 10) {
+      const stringLine = this.add.rectangle(i, 0, 1, 10, racketData.stringsColor);
+      strings.add(stringLine);
+    }
+    for(let i = -4; i <= 4; i += 2) {
+      const stringLine = this.add.rectangle(0, i, 100, 1, racketData.stringsColor);
+      strings.add(stringLine);
+    }
+    
+    // Add grip tape effect on handle
+    if(racketData.gripTape) {
+      const grip = this.add.rectangle(0, 0, 18, 10, racketData.gripTapeColor)
+        .setAlpha(0.7);
+      container.add(grip);
+    }
+    
+    // Add components to container
+    container.add([frame, handle]);
+    strings.children.entries.forEach(child => container.add(child));
+    
+    container.setDepth(3);
+    return container;
+  }
+  
+  private updateRacketPosition(racket: Phaser.GameObjects.Container, x: number, y: number) {
+    racket.setPosition(x, y);
+  }
+  
+  private getRacketData(isMyRacket: boolean) {
+    if (!isMyRacket) {
+      // Default opponent racket
+      return {
+        frameColor: 0x8B4513,
+        handleColor: 0x654321,
+        stringsColor: 0xFFFFFF,
+        gripTape: false,
+        gripTapeColor: 0x000000
+      };
+    }
+    
+    // Try to get racket data from URL params
+    const params = new URLSearchParams(location.search);
+    const racketParam = params.get('racket');
+    
+    if (racketParam) {
+      try {
+        const racketData = JSON.parse(decodeURIComponent(racketParam));
+        return {
+          frameColor: parseInt(racketData.frameColor?.replace('#', '0x') || '0x8B4513'),
+          handleColor: parseInt(racketData.handleColor?.replace('#', '0x') || '0x654321'),
+          stringsColor: parseInt(racketData.stringsColor?.replace('#', '0x') || '0xFFFFFF'),
+          gripTape: !!racketData.gripTape,
+          gripTapeColor: parseInt(racketData.gripTapeColor?.replace('#', '0x') || '0x000000')
+        };
+      } catch (e) {
+        console.warn('Failed to parse racket data from URL');
+      }
+    }
+    
+    // Default my racket
+    return {
+      frameColor: 0x4169E1,
+      handleColor: 0x2F4F4F,
+      stringsColor: 0xFFFFFF,
+      gripTape: false,
+      gripTapeColor: 0x000000
+    };
   }
   
   private addSpinEffect() {
