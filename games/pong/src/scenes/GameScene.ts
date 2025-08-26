@@ -372,7 +372,7 @@ export class GameScene extends Phaser.Scene {
     }
     
     // Fallback: create visual racket if no PNG
-    return this.createVisualRacket(isMine, handed);
+    return this.createVisualRacket(handed);
   }
 
   private updateRacketPositions() {
