@@ -152,9 +152,7 @@ export class GameScene extends Phaser.Scene {
     // Setup game mode
     if (this.isTrainingMode) {
       // Start training mode immediately
-      this.time.delayedCall(100, () => {
       this.startTrainingMode();
-      });
     } else {
       this.setupMultiplayerMode();
     }
@@ -185,7 +183,7 @@ export class GameScene extends Phaser.Scene {
 
   private startTrainingMode() {
     console.log('Starting training mode');
-    this.showToast('Training Mode - Click to serve!');
+    this.showToast('Training Mode - Click to serve!', 3000);
     
     // Initialize training state
     this.mySide = 'bottom';
@@ -204,6 +202,9 @@ export class GameScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
+    
+    // Force start immediately
+    this.updateTraining();
   }
 
   private setupMultiplayerMode() {
@@ -462,12 +463,21 @@ export class GameScene extends Phaser.Scene {
     this.socket.onMatchmakingStarted(()=> this.showToast('Matchmaking...'));
     this.socket.onMatchFound((m: Match)=>{
       this.assignSides(m);
-      this.showToast('Match found');
+      this.showToast('Match found - Get ready!', 2000);
       this.socket?.sendReady();
     });
 
     // Server state updates
-    (this.socket as any)['socket'].on('pong_state', (state:any)=> this.applyState(state));
+    (this.socket as any)['socket'].on('pong_state', (state:any)=> {
+      console.log('Received pong_state:', state);
+      this.applyState(state);
+    });
+    
+    // Game started event
+    (this.socket as any)['socket'].on('game_started', ()=> {
+      console.log('Game started!');
+      this.showToast('Game started!', 1500);
+    });
   }
 
   private assignSides(match: Match){
@@ -477,26 +487,47 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyState(s: any){
+    if (!s || !s.players) {
+      console.warn('Invalid state received:', s);
+      return;
+    }
+    
     // Update positions
-    this.me.setPosition(s.players[this.mySide].x, s.players[this.mySide].y);
+    if (s.players[this.mySide]) {
+      this.me.setPosition(s.players[this.mySide].x, s.players[this.mySide].y);
+    }
+    
     const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
-    this.opp.setPosition(s.players[oppSide].x, s.players[oppSide].y);
+    if (s.players[oppSide]) {
+      this.opp.setPosition(s.players[oppSide].x, s.players[oppSide].y);
+    }
 
-    this.ball.setPosition(s.ball.x, s.ball.y);
+    if (s.ball) {
+      this.ball.setPosition(s.ball.x, s.ball.y);
+    }
 
     // Update fury bar
-    const fury = s.players[this.mySide].fury as number;
-    const h = Phaser.Math.Linear(0, 300, Phaser.Math.Clamp(fury,0,100)/100);
-    this.furyBar.setSize(14, h);
-    this.furyBar.setY(this.scale.height/2 + h/2);
+    if (s.players[this.mySide] && typeof s.players[this.mySide].fury === 'number') {
+      const fury = s.players[this.mySide].fury;
+      const h = Phaser.Math.Linear(0, 300, Phaser.Math.Clamp(fury,0,100)/100);
+      this.furyBar.setSize(14, h);
+      this.furyBar.setY(this.scale.height/2 + h/2);
+    }
 
     // Update score
-    this.scoreTop    = s.players.top.score;
-    this.scoreBottom = s.players.bottom.score;
-    this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+    if (s.players.top && s.players.bottom) {
+      this.scoreTop    = s.players.top.score;
+      this.scoreBottom = s.players.bottom.score;
+      this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+    }
 
-    this.serverSide = s.serverSide;
-    this.serving    = s.serving;
+    if (s.serverSide !== undefined) this.serverSide = s.serverSide;
+    if (s.serving !== undefined) this.serving = s.serving;
+    
+    // Show serving info
+    if (this.serving && this.serverSide === this.mySide) {
+      this.showToast('Your serve - Click to serve!', 1000);
+    }
 
     // Update racket positions
     this.updateRacketPositions();
@@ -507,7 +538,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private toast?: Phaser.GameObjects.Text;
-  private showToast(msg:string){
+  private showToast(msg:string, duration: number = 2000){
     if(this.toast) this.toast.destroy();
     this.toast = this.add.text(this.scale.width/2, 60, msg, { 
       fontFamily:'Arial', 
@@ -520,8 +551,8 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ 
       targets:this.toast, 
       alpha:0, 
-      duration:1600, 
-      delay:800, 
+      duration:Math.max(800, duration * 0.4), 
+      delay:Math.max(400, duration * 0.6), 
       onComplete: ()=> this.toast?.destroy() 
     });
   }

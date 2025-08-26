@@ -79,10 +79,14 @@ export class PongRoom {
     // état initial (balle chez le serveur)
     this.resetForServe();
     this.broadcastState();
+    
+    console.log(`PongRoom created: ${gameId}`);
   }
 
   private tryStart(){
     if (this.players.bottom.ready && this.players.top.ready && !this.interval){
+      console.log('Starting pong game:', this.gameId);
+      this.io.to(this.gameId).emit('game_started');
       this.interval = setInterval(()=> this.tick(), 1000/60);     // logique 60 fps
       // broadcast à 20 Hz
       setInterval(()=> this.broadcastState(), 50);
@@ -222,6 +226,7 @@ export class PongRoom {
       rally: this.rally,
       ts: Date.now()
     };
+    console.log('Broadcasting state:', state.gameId, 'serving:', state.serving, 'serverSide:', state.serverSide);
     this.io.to(this.gameId).emit('pong_state', state);
   }
 
