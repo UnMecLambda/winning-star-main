@@ -8,6 +8,7 @@ export const defaultRackets = [
     description: 'A basic racket perfect for beginners',
     basePrice: 0,
     rarity: 'common' as const,
+    imagePath: '/assets/rackets/starter-racket.png', // Add image path
     baseStats: {
       power: 40,
       control: 50,
@@ -28,6 +29,7 @@ export const defaultRackets = [
     description: 'A decent racket for casual players',
     basePrice: 1200,
     rarity: 'common' as const,
+    imagePath: '/assets/rackets/amateur-racket.png',
     baseStats: {
       power: 50,
       control: 55,
@@ -48,6 +50,7 @@ export const defaultRackets = [
     description: 'Popular choice among club players',
     basePrice: 2000,
     rarity: 'common' as const,
+    imagePath: '/assets/rackets/club-champion.png',
     baseStats: {
       power: 60,
       control: 60,

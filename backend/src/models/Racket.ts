@@ -6,6 +6,7 @@ export interface IRacket extends Document {
   description: string;
   basePrice: number;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  imagePath?: string; // Path to racket PNG image
   baseStats: {
     power: number;
     control: number;
@@ -47,6 +48,9 @@ const racketSchema = new Schema<IRacket>({
     type: String,
     enum: ['common', 'rare', 'epic', 'legendary'],
     required: true
+  },
+  imagePath: {
+    type: String
   },
   baseStats: {
     power: { type: Number, required: true, min: 0, max: 100 },

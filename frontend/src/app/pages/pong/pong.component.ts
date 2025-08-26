@@ -51,6 +51,7 @@ export class PongComponent {
   
   private async buildRacketVisual(equippedRacket: any): Promise<any> {
     const visual: any = {
+      imagePath: equippedRacket.racketId.imagePath, // Add image path
       frameColor: equippedRacket.racketId.visualConfig.frameColor,
       handleColor: equippedRacket.racketId.visualConfig.handleColor,
       stringsColor: '#FFFFFF' // Default strings color
