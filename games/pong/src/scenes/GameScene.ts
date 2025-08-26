@@ -123,12 +123,22 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(w/2+2, courtY + courtH/2+2, courtW, 2, 0x000000).setAlpha(.25).setDepth(1.9);
     }
 
-    // Players (circles)
-    this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
-    this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
+    // Players (circles) - positioned based on view
+    if (this.mySide === 'bottom') {
+      this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
+      this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
+    } else {
+      // For top player, flip the view so they see themselves at bottom
+      this.me  = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x111111);
+      this.opp = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x222244);
+    }
     
-    // Ball
-    this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
+    // Ball - positioned based on view
+    if (this.mySide === 'bottom') {
+      this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
+    } else {
+      this.ball = this.add.circle(w/2, this.courtBounds.top + 80, 10, 0xffde59);
+    }
 
     // Create rackets
     this.myRacket  = this.createRacketSprite(true,  this.myHandedness);
@@ -223,9 +233,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTrainingInput(pointer: Phaser.Input.Pointer) {
-    // Clamp to bottom half of court
-    const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-    const maxY = this.courtBounds.bottom - 40;
+    // Clamp to player's half of court based on view
+    let minY, maxY;
+    if (this.mySide === 'bottom') {
+      minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+      maxY = this.courtBounds.bottom - 40;
+    } else {
+      minY = this.courtBounds.top + 40;
+      maxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+    }
+    
     const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
     
@@ -336,13 +353,22 @@ export class GameScene extends Phaser.Scene {
   private resetTrainingBall() {
     this.serving = true;
     
-    // Reset player position to center bottom
+    // Reset player position to center of their side
     const centerX = this.scale.width / 2;
-    const playerY = this.courtBounds.bottom - 40;
+    let playerY, ballY;
+    
+    if (this.mySide === 'bottom') {
+      playerY = this.courtBounds.bottom - 40;
+      ballY = playerY - 40;
+    } else {
+      playerY = this.courtBounds.top + 40;
+      ballY = playerY + 40;
+    }
+    
     this.me.setPosition(centerX, playerY);
     
-    // Position ball for serve
-    this.ball.setPosition(centerX, playerY - 40);
+    // Position ball for serve based on view
+    this.ball.setPosition(centerX, ballY);
     this.ballVelocity.x = 0;
     this.ballVelocity.y = 0;
     
@@ -431,7 +457,15 @@ export class GameScene extends Phaser.Scene {
     side: PlayerSide, 
     handed: Handed
   ) {
-    const yOffset = side === 'bottom' ? -60 : +60;
+    // Adjust offset based on actual visual position, not logical side
+    let yOffset;
+    if (this.mySide === 'bottom') {
+      yOffset = side === 'bottom' ? -60 : +60;
+    } else {
+      // For top player view, flip the offsets
+      yOffset = side === 'top' ? -60 : +60;
+    }
+    
     const xOffset = handed === 'right' ? +20 : -20;
     racket.setPosition(px + xOffset, py + yOffset);
   }
@@ -484,6 +518,7 @@ export class GameScene extends Phaser.Scene {
     const ids = match.players.map(p=>p.id).sort();
     const bottomId = ids[0];
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
+    console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
   }
 
   private applyState(s: any){
@@ -492,18 +527,32 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     
-    // Update positions
+    // Transform coordinates based on view
+    const transformY = (y: number) => {
+      if (this.mySide === 'top') {
+        // Flip Y coordinate for top player
+        const courtCenter = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+        return courtCenter + (courtCenter - y);
+      }
+      return y;
+    };
+    
+    // Update my position
     if (s.players[this.mySide]) {
-      this.me.setPosition(s.players[this.mySide].x, s.players[this.mySide].y);
+      const myData = s.players[this.mySide];
+      this.me.setPosition(myData.x, transformY(myData.y));
     }
     
+    // Update opponent position
     const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
     if (s.players[oppSide]) {
-      this.opp.setPosition(s.players[oppSide].x, s.players[oppSide].y);
+      const oppData = s.players[oppSide];
+      this.opp.setPosition(oppData.x, transformY(oppData.y));
     }
 
+    // Update ball position
     if (s.ball) {
-      this.ball.setPosition(s.ball.x, s.ball.y);
+      this.ball.setPosition(s.ball.x, transformY(s.ball.y));
     }
 
     // Update fury bar
@@ -514,18 +563,26 @@ export class GameScene extends Phaser.Scene {
       this.furyBar.setY(this.scale.height/2 + h/2);
     }
 
-    // Update score
+    // Update score (flip for top player view)
     if (s.players.top && s.players.bottom) {
-      this.scoreTop    = s.players.top.score;
-      this.scoreBottom = s.players.bottom.score;
-      this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+      if (this.mySide === 'bottom') {
+        this.scoreTop = s.players.top.score;
+        this.scoreBottom = s.players.bottom.score;
+        this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+      } else {
+        // Flip score display for top player
+        this.scoreTop = s.players.bottom.score;
+        this.scoreBottom = s.players.top.score;
+        this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+      }
     }
 
     if (s.serverSide !== undefined) this.serverSide = s.serverSide;
     if (s.serving !== undefined) this.serving = s.serving;
     
     // Show serving info
-    if (this.serving && this.serverSide === this.mySide) {
+    const isMyServe = this.serving && this.serverSide === this.mySide;
+    if (isMyServe) {
       this.showToast('Your serve - Click to serve!', 1000);
     }
 

@@ -87,8 +87,14 @@ export class PongRoom {
     if (this.players.bottom.ready && this.players.top.ready && !this.interval){
       console.log('Starting pong game:', this.gameId);
       this.io.to(this.gameId).emit('game_started');
+      
+      // Start game loop immediately
       this.interval = setInterval(()=> this.tick(), 1000/60);     // logique 60 fps
-      // broadcast à 20 Hz
+      
+      // Broadcast initial state immediately
+      this.broadcastState();
+      
+      // Then broadcast at 20 Hz
       setInterval(()=> this.broadcastState(), 50);
     }
   }
@@ -187,6 +193,8 @@ export class PongRoom {
     if (!input) return;
     const side = sender.id === this.players.bottom.id ? 'bottom' : 'top';
     const p = this.players[side];
+    
+    console.log(`Input from ${side}:`, input.type, input.x, input.y);
 
     if (input.type === 'move'){
       // clamp aux bornes de sa moitié
@@ -199,6 +207,7 @@ export class PongRoom {
 
     if (input.type === 'serve' && this.serving && side === this.serverSide){
       // service depuis le serveur courant
+      console.log(`${side} is serving!`);
       this.serving = false;
       const base = 420;
       const angle = (side==='bottom')
