@@ -151,7 +151,10 @@ export class GameScene extends Phaser.Scene {
 
     // Setup game mode
     if (this.isTrainingMode) {
+      // Start training mode immediately
+      this.time.delayedCall(100, () => {
       this.startTrainingMode();
+      });
     } else {
       this.setupMultiplayerMode();
     }
@@ -331,9 +334,19 @@ export class GameScene extends Phaser.Scene {
 
   private resetTrainingBall() {
     this.serving = true;
-    this.ball.setPosition(this.me.x, this.me.y - 40);
+    
+    // Reset player position to center bottom
+    const centerX = this.scale.width / 2;
+    const playerY = this.courtBounds.bottom - 40;
+    this.me.setPosition(centerX, playerY);
+    
+    // Position ball for serve
+    this.ball.setPosition(centerX, playerY - 40);
     this.ballVelocity.x = 0;
     this.ballVelocity.y = 0;
+    
+    // Update racket position
+    this.updateRacketPositions();
   }
 
   private createRacketSprite(isMine: boolean, handed: Handed): Phaser.GameObjects.Image | Phaser.GameObjects.Container {
@@ -349,7 +362,7 @@ export class GameScene extends Phaser.Scene {
     if (key) {
       const img = this.add.image(0, 0, key);
       img.setOrigin(0.5, 0.8); // Center horizontally, bottom of racket at player
-      img.setScale(0.4);
+      img.setScale(0.25); // Reduced size
       img.setAngle(handed === 'right' ? -15 : 15);
       img.setDepth(3);
       return img;
@@ -363,37 +376,37 @@ export class GameScene extends Phaser.Scene {
     const container = this.add.container(0, 0);
     
     // Racket head (oval)
-    const head = this.add.ellipse(0, -30, 50, 80, 0x8B4513);
+    const head = this.add.ellipse(0, -20, 35, 55, 0x8B4513);
     head.setStrokeStyle(4, 0x654321);
     
     // Handle
-    const handle = this.add.rectangle(0, 20, 12, 60, 0x654321);
+    const handle = this.add.rectangle(0, 15, 8, 40, 0x654321);
     
     // Strings (vertical)
-    for (let i = -20; i <= 20; i += 6) {
-      const string = this.add.line(0, -30, i, -60, i, 0, 0xFFFFFF);
+    for (let i = -15; i <= 15; i += 5) {
+      const string = this.add.line(0, -20, i, -40, i, 0, 0xFFFFFF);
       string.setLineWidth(1.5);
       container.add(string);
     }
     
     // Strings (horizontal)
-    for (let i = -50; i <= -10; i += 10) {
-      const string = this.add.line(0, -30, -22, i, 22, i, 0xFFFFFF);
+    for (let i = -35; i <= -5; i += 8) {
+      const string = this.add.line(0, -20, -15, i, 15, i, 0xFFFFFF);
       string.setLineWidth(1.5);
       container.add(string);
     }
     
     // Grip tape
-    const grip = this.add.rectangle(0, 35, 14, 30, 0x333333);
+    const grip = this.add.rectangle(0, 25, 10, 20, 0x333333);
     
     // Grip lines
-    for (let i = 0; i < 5; i++) {
-      const gripLine = this.add.rectangle(0, 25 + i * 5, 16, 1, 0x555555);
+    for (let i = 0; i < 4; i++) {
+      const gripLine = this.add.rectangle(0, 18 + i * 4, 12, 1, 0x555555);
       container.add(gripLine);
     }
     
     container.add([head, handle, grip]);
-    container.setScale(0.6);
+    container.setScale(0.4); // Reduced scale
     container.setAngle(handed === 'right' ? -15 : 15);
     container.setDepth(3);
     
