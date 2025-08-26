@@ -59,7 +59,7 @@ export class PongComponent {
     
     // Add customization colors based on components
     try {
-      if (equippedRacket.customization.strings) {
+      if (equippedRacket.customization && equippedRacket.customization.strings) {
         const components = await this.racketService.getComponents('strings').toPromise();
         const stringsComponent = components?.find(c => c.id === equippedRacket.customization.strings);
         if (stringsComponent) {
@@ -67,7 +67,7 @@ export class PongComponent {
         }
       }
       
-      if (equippedRacket.customization.handle) {
+      if (equippedRacket.customization && equippedRacket.customization.handle) {
         const components = await this.racketService.getComponents('handle').toPromise();
         const handleComponent = components?.find(c => c.id === equippedRacket.customization.handle);
         if (handleComponent) {
@@ -75,7 +75,7 @@ export class PongComponent {
         }
       }
       
-      if (equippedRacket.customization.gripTape) {
+      if (equippedRacket.customization && equippedRacket.customization.gripTape) {
         const components = await this.racketService.getComponents('grip_tape').toPromise();
         const gripComponent = components?.find(c => c.id === equippedRacket.customization.gripTape);
         if (gripComponent) {
@@ -84,7 +84,7 @@ export class PongComponent {
         }
       }
       
-      if (equippedRacket.customization.dampener) {
+      if (equippedRacket.customization && equippedRacket.customization.dampener) {
         const components = await this.racketService.getComponents('dampener').toPromise();
         const dampenerComponent = components?.find(c => c.id === equippedRacket.customization.dampener);
         if (dampenerComponent) {

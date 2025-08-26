@@ -372,7 +372,7 @@ export class GameScene extends Phaser.Scene {
     }
     
     // Fallback: create visual racket if no PNG
-    return this.createVisualRacket(isMine, handed);
+    return this.createVisualRacket(handed);
   }
 
   private updateRacketPositions() {
@@ -381,7 +381,7 @@ export class GameScene extends Phaser.Scene {
     this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSide, this.oppHandedness);
   }
 
-  private positionRacket(r: Phaser.GameObjects.Image, px: number, py: number, side: PlayerSide, handed: Handed) {
+  private positionRacket(r: Phaser.GameObjects.Image | Phaser.GameObjects.Container, px: number, py: number, side: PlayerSide, handed: Handed) {
     const yOffset = side === 'bottom' ? -50 : +50;
     const xOffset = handed === 'right' ? +15 : -15;
     r.setPosition(px + xOffset, py + yOffset);
