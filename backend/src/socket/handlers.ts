@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { PongRoom } from '../games/pong/PongRoom';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -13,6 +14,7 @@ type MatchInfo = {
 };
 
 const queues: Record<string, AuthenticatedSocket[]> = {};
+const pongRooms = new Map<string, PongRoom>();
 
 export function setupSocketHandlers(io: Server) {
   io.on('connection', (socket: AuthenticatedSocket) => {
@@ -26,13 +28,8 @@ export function setupSocketHandlers(io: Server) {
       tryMatch(io, gameType);
     });
 
-    socket.on('game_ready', (gameId: string) => {
-      socket.to(gameId).emit('opponent_ready', { playerId: socket.userId });
-    });
-
-    socket.on('game_input', ({ gameId, input }) => {
-      socket.to(gameId).emit('player_input', { playerId: socket.userId, input, ts: Date.now() });
-    });
+    // Les inputs seront attrapés par PongRoom via 'game_input' / 'game_ready'
+    // (pas de relay direct ici)
   });
 }
 
@@ -47,20 +44,29 @@ function tryMatch(io: Server, gameType: string) {
     const p1 = q.shift()!;
     const p2 = q.shift()!;
     const gameId = `game:${gameType}:${Date.now()}:${Math.random().toString(36).slice(2,8)}`;
-    p1.join(gameId); p2.join(gameId);
+
     const match: MatchInfo = {
-      gameId, gameType,
+      gameId,
+      gameType,
       players: [
         { id: p1.userId || p1.id, username: p1.username || 'P1' },
         { id: p2.userId || p2.id, username: p2.username || 'P2' }
       ],
       timestamp: Date.now()
     };
-    io.to(p1.id).emit('match_found', match);
-    io.to(p2.id).emit('match_found', match);
+
+    // annonce du match
+    p1.emit('match_found', match);
+    p2.emit('match_found', match);
+
+    // crée la room pong autoritaire (p1 = bottom, p2 = top)
+    const room = new PongRoom(io, gameId, p1, p2);
+    pongRooms.set(gameId, room);
   }
 }
 
 function handleDisconnect(socket: AuthenticatedSocket) {
-  for (const k of Object.keys(queues)) queues[k] = (queues[k] || []).filter(s => s.id !== socket.id);
+  for (const k of Object.keys(queues)) {
+    queues[k] = (queues[k] || []).filter(s => s.id !== socket.id);
+  }
 }
