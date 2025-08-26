@@ -24,8 +24,8 @@ export class GameScene extends Phaser.Scene {
   private me!: Phaser.GameObjects.Arc;
   private opp!: Phaser.GameObjects.Arc;
 
-  private myRacket!: Phaser.GameObjects.Image;
-  private oppRacket!: Phaser.GameObjects.Image;
+  private myRacket!: Phaser.GameObjects.Image | Phaser.GameObjects.Container;
+  private oppRacket!: Phaser.GameObjects.Image | Phaser.GameObjects.Container;
 
   private myHandedness: Handed = 'right';
   private oppHandedness: Handed = 'right';
@@ -34,6 +34,7 @@ export class GameScene extends Phaser.Scene {
   private ballVelocity = { x: 0, y: 0 };
   private paddleSpeed = 300;
   private ballSpeed = 400;
+  private trainingLoop?: Phaser.Time.TimerEvent;
 
   private scoreTop = 0;
   private scoreBottom = 0;
@@ -45,12 +46,21 @@ export class GameScene extends Phaser.Scene {
   private serverSide: PlayerSide = 'bottom';
   private serving = true;
 
+  // Court bounds
+  private courtBounds = {
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0
+  };
+
   constructor(token: string){
     super('game');
     this.token = token;
   }
 
   preload(){
+    // Create white texture if not exists
     if (!this.textures.exists('white')) {
       const g = this.add.graphics().fillStyle(0xffffff).fillRect(0,0,2,2);
       g.generateTexture('white', 2, 2);
@@ -87,13 +97,25 @@ export class GameScene extends Phaser.Scene {
     const courtH = h - 260;
     const courtY = 100;
 
+    // Set court bounds
+    this.courtBounds = {
+      left: w/2 - courtW/2 + 10,
+      right: w/2 + courtW/2 - 10,
+      top: courtY + 10,
+      bottom: courtY + courtH - 10
+    };
+
+    // Create court
     this.court = this.add.rectangle(w/2, courtY + courtH/2, courtW, courtH, 0x2b8a3e).setStrokeStyle(8, 0xffffff);
+    
+    // Court lines
     const line = (x:number,y:number,w:number,h:number)=>this.add.rectangle(x,y,w,h,0xffffff).setOrigin(0.5).setDepth(0);
     line(this.court.x, this.court.y, courtW-40, 4);
     line(this.court.x, this.court.y + courtH/2, courtW-40, 4);
     line(this.court.x, this.court.y - courtH/2, courtW-40, 4);
     line(this.court.x, this.court.y, 4, courtH-40);
 
+    // Net
     if (this.textures.exists('net_img')) {
       this.netLine = this.add.image(w/2, courtY + courtH/2, 'net_img').setDisplaySize(courtW, 14).setDepth(2);
     } else {
@@ -101,86 +123,79 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(w/2+2, courtY + courtH/2+2, courtW, 2, 0x000000).setAlpha(.25).setDepth(1.9);
     }
 
-    // simple cercles pour corps/ball
-    this.me  = this.add.circle(w/2, courtY + courtH - 40, 20, 0x111111);
-    this.opp = this.add.circle(w/2, courtY + 40,         20, 0x222244);
-    this.ball = this.add.circle(w/2, h/2, 10, 0xffde59);
+    // Players (circles)
+    this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
+    this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
+    
+    // Ball
+    this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
 
-    // Raquettes PNG
+    // Create rackets
     this.myRacket  = this.createRacketSprite(true,  this.myHandedness);
     this.oppRacket = this.createRacketSprite(false, this.oppHandedness);
 
+    // Position rackets initially
+    this.updateRacketPositions();
+
     // HUD
-    this.scoreText = this.add.text(w/2, 24, '0 : 0', { fontFamily: 'Arial', fontSize: '28px', color: '#fff' }).setOrigin(0.5,0);
+    this.scoreText = this.add.text(w/2, 24, '0 : 0', { 
+      fontFamily: 'Arial', 
+      fontSize: '28px', 
+      color: '#fff' 
+    }).setOrigin(0.5,0);
+    
     this.furyBar = this.add.rectangle(20, h/2, 14, 0, 0xffcc00).setOrigin(0.5,1);
 
-    // Sockets
-    this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
-    const backendUrl = (window as any).IBET_BACKEND_URL || (new URLSearchParams(location.search).get('api') || 'http://localhost:4000');
-    
-    if(this.token && !this.isTrainingMode){
-      import('../network/GameSocket').then(() => {
-        this.socket = new GameSocket(backendUrl, this.token);
-        this.bindSocket();
-      });
+    // Setup input handlers
+    this.setupInputHandlers();
+
+    // Setup game mode
+    if (this.isTrainingMode) {
+      this.startTrainingMode();
     } else {
-      if (this.isTrainingMode) {
-        this.showToast('Training Mode');
-        this.startTrainingMode();
-      } else {
-        this.showToast('Login required for multiplayer');
-      }
+      this.setupMultiplayerMode();
     }
 
-    // Input → envoie seulement les mouvements
-    this.input.on('pointermove', (p: Phaser.Input.Pointer)=>{
+    // Menu button
+    this.createMenuButton();
+  }
+
+  private setupInputHandlers() {
+    // Mouse/touch movement
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (this.isTrainingMode) {
-        this.handleTrainingInput(p);
+        this.handleTrainingInput(pointer);
       } else {
-        this.sendInput({ type:'move', x:p.x, y:p.y });
+        this.sendInput({ type:'move', x:pointer.x, y:pointer.y });
       }
     });
     
-    this.input.on('pointerdown', ()=>{
+    // Click/tap to serve
+    this.input.on('pointerdown', () => {
       if (this.isTrainingMode) {
         this.serveTrainingBall();
-      } else if (this.serving && this.mySide === this.serverSide){
+      } else if (this.serving && this.mySide === this.serverSide) {
         this.sendInput({ type:'serve' });
       }
     });
-
-    // Bouton Menu
-    const menuBtn = this.add.rectangle(w - 60, 30, 100, 40, 0x333333)
-      .setStrokeStyle(2, 0x666666)
-      .setInteractive()
-      .on('pointerdown', () => { window.location.href = window.location.origin + '/play'; })
-      .on('pointerover', () => menuBtn.setFillStyle(0x555555))
-      .on('pointerout',  () => menuBtn.setFillStyle(0x333333));
-    this.add.text(w - 60, 30, 'Menu', { fontFamily: 'Arial', fontSize: '16px', color: '#fff' }).setOrigin(0.5);
   }
 
   private startTrainingMode() {
-    // Initialize training mode
+    console.log('Starting training mode');
+    this.showToast('Training Mode - Click to serve!');
+    
+    // Initialize training state
     this.mySide = 'bottom';
     this.serving = true;
     this.serverSide = 'bottom';
-    
-    // Position players
-    const w = this.scale.width, h = this.scale.height;
-    const courtH = h - 260;
-    const courtY = 100;
-    
-    this.me.setPosition(w/2, courtY + courtH - 40);
-    this.opp.setPosition(w/2, courtY + 40);
+    this.scoreTop = 0;
+    this.scoreBottom = 0;
     
     // Position ball for serve
-    this.ball.setPosition(w/2, courtY + courtH - 80);
-    
-    // Update racket positions
-    this.updateRacketPositions();
+    this.resetTrainingBall();
     
     // Start training loop
-    this.time.addEvent({
+    this.trainingLoop = this.time.addEvent({
       delay: 16, // ~60 FPS
       callback: this.updateTraining,
       callbackScope: this,
@@ -188,24 +203,39 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private handleTrainingInput(pointer: Phaser.Input.Pointer) {
-    const w = this.scale.width, h = this.scale.height;
-    const courtH = h - 260;
-    const courtY = 100;
+  private setupMultiplayerMode() {
+    this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
+    const backendUrl = (window as any).IBET_BACKEND_URL || 
+                      (new URLSearchParams(location.search).get('api') || 'http://localhost:4000');
     
+    if (this.token) {
+      import('../network/GameSocket').then(() => {
+        this.socket = new GameSocket(backendUrl, this.token);
+        this.bindSocket();
+      });
+    } else {
+      this.showToast('Login required for multiplayer');
+    }
+  }
+
+  private handleTrainingInput(pointer: Phaser.Input.Pointer) {
     // Clamp to bottom half of court
-    const minY = courtY + courtH/2;
-    const maxY = courtY + courtH - 40;
+    const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+    const maxY = this.courtBounds.bottom - 40;
+    const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
     
-    this.me.setPosition(pointer.x, clampedY);
+    this.me.setPosition(clampedX, clampedY);
     this.updateRacketPositions();
   }
 
   private serveTrainingBall() {
     if (!this.serving) return;
     
+    console.log('Serving ball in training mode');
     this.serving = false;
+    
+    // Random serve angle
     const angle = Phaser.Math.Between(-45, -20);
     const rad = Phaser.Math.DegToRad(angle);
     
@@ -216,47 +246,47 @@ export class GameScene extends Phaser.Scene {
   private updateTraining() {
     if (this.serving) return;
     
-    const w = this.scale.width, h = this.scale.height;
-    const courtH = h - 260;
-    const courtY = 100;
-    const margin = 60;
-    const courtW = w - margin * 2;
+    const deltaTime = 0.016; // 60 FPS
     
     // Move ball
-    this.ball.x += this.ballVelocity.x * 0.016;
-    this.ball.y += this.ballVelocity.y * 0.016;
+    this.ball.x += this.ballVelocity.x * deltaTime;
+    this.ball.y += this.ballVelocity.y * deltaTime;
     
     // Bounce off sides
-    const leftBound = w/2 - courtW/2 + 10;
-    const rightBound = w/2 + courtW/2 - 10;
-    
-    if (this.ball.x <= leftBound || this.ball.x >= rightBound) {
+    if (this.ball.x <= this.courtBounds.left || this.ball.x >= this.courtBounds.right) {
       this.ballVelocity.x *= -1;
-      this.ball.x = Phaser.Math.Clamp(this.ball.x, leftBound, rightBound);
+      this.ball.x = Phaser.Math.Clamp(this.ball.x, this.courtBounds.left, this.courtBounds.right);
     }
     
     // Check for scoring (ball goes out top or bottom)
-    if (this.ball.y < courtY - 10) {
+    if (this.ball.y < this.courtBounds.top - 20) {
       this.scoreBottom++;
       this.resetTrainingBall();
-    } else if (this.ball.y > courtY + courtH + 10) {
+      this.showToast('Point! Click to serve');
+    } else if (this.ball.y > this.courtBounds.bottom + 20) {
       this.scoreTop++;
       this.resetTrainingBall();
+      this.showToast('Opponent scores! Click to serve');
     }
     
     // Simple AI for opponent
     const oppTarget = this.ball.x;
-    const oppSpeed = 200;
+    const oppSpeed = 200 * deltaTime;
     if (this.opp.x < oppTarget - 5) {
-      this.opp.x += oppSpeed * 0.016;
+      this.opp.x = Math.min(this.opp.x + oppSpeed, this.courtBounds.right - 40);
     } else if (this.opp.x > oppTarget + 5) {
-      this.opp.x -= oppSpeed * 0.016;
+      this.opp.x = Math.max(this.opp.x - oppSpeed, this.courtBounds.left + 40);
     }
+    
+    // Keep opponent in bounds
+    const oppMinY = this.courtBounds.top + 40;
+    const oppMaxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2 - 40;
+    this.opp.y = Phaser.Math.Clamp(this.opp.y, oppMinY, oppMaxY);
     
     // Check collisions
     this.checkTrainingCollisions();
     
-    // Update score
+    // Update score display
     this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
     
     // Update racket positions
@@ -301,74 +331,18 @@ export class GameScene extends Phaser.Scene {
 
   private resetTrainingBall() {
     this.serving = true;
-    const w = this.scale.width, h = this.scale.height;
-    const courtH = h - 260;
-    const courtY = 100;
-    
-    this.ball.setPosition(w/2, courtY + courtH - 80);
+    this.ball.setPosition(this.me.x, this.me.y - 40);
     this.ballVelocity.x = 0;
     this.ballVelocity.y = 0;
   }
 
-  private bindSocket(){
-    if(!this.socket) return;
-    this.socket.onConnect(()=> console.log('[socket] connected'));
-    this.socket.onConnectError((e)=> console.warn('[socket] error', e));
-
-    this.socket.onMatchmakingStarted(()=> this.showToast('Matchmaking...'));
-    this.socket.onMatchFound((m: Match)=>{
-      this.assignSides(m);
-      this.showToast('Match found');
-      this.socket?.sendReady(); // déclenche la room serveur
-    });
-
-    // Nouvel état serveur
-    (this.socket as any)['socket'].on('pong_state', (state:any)=> this.applyState(state));
-  }
-
-  private assignSides(match: Match){
-    const ids = match.players.map(p=>p.id).sort();
-    const bottomId = ids[0];
-    this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
-  }
-
-  private applyState(s: any){
-    // positions
-    this.me.setPosition(s.players[this.mySide].x, s.players[this.mySide].y);
-    const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
-    this.opp.setPosition(s.players[oppSide].x, s.players[oppSide].y);
-
-    this.ball.setPosition(s.ball.x, s.ball.y);
-
-    // fury (barre)
-    const fury = s.players[this.mySide].fury as number;
-    const h = Phaser.Math.Linear(0, 300, Phaser.Math.Clamp(fury,0,100)/100);
-    this.furyBar.setSize(14, h);
-    this.furyBar.setY(this.scale.height/2 + h/2);
-
-    // score
-    this.scoreTop    = s.players.top.score;
-    this.scoreBottom = s.players.bottom.score;
-    this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-
-    this.serverSide = s.serverSide;
-    this.serving    = s.serving;
-
-    // place raquettes
-    this.positionRacket(this.myRacket,  this.me.x,  this.me.y,  this.mySide, this.myHandedness);
-    this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSide,     this.oppHandedness);
-  }
-
-  private sendInput(input: any){ this.socket?.sendInput(input); }
-
-  private createRacketSprite(isMine: boolean, handed: Handed): Phaser.GameObjects.Image {
+  private createRacketSprite(isMine: boolean, handed: Handed): Phaser.GameObjects.Image | Phaser.GameObjects.Container {
     // Try to use PNG image first
     let key = '';
     
     if (isMine && this.textures.exists('racket_my')) {
       key = 'racket_my';
     } else if (this.textures.exists('starter-racket')) {
-      // Fallback to starter racket for training mode
       key = 'starter-racket';
     }
 
@@ -385,57 +359,164 @@ export class GameScene extends Phaser.Scene {
     return this.createVisualRacket(handed);
   }
 
-  private updateRacketPositions() {
-    this.positionRacket(this.myRacket, this.me.x, this.me.y, this.mySide, this.myHandedness);
-    const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
-    this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSide, this.oppHandedness);
-  }
-
-  private positionRacket(r: Phaser.GameObjects.Image | Phaser.GameObjects.Container, px: number, py: number, side: PlayerSide, handed: Handed) {
-    const yOffset = side === 'bottom' ? -50 : +50;
-    const xOffset = handed === 'right' ? +15 : -15;
-    r.setPosition(px + xOffset, py + yOffset);
-  }
-
   private createVisualRacket(handed: Handed): Phaser.GameObjects.Container {
     const container = this.add.container(0, 0);
     
     // Racket head (oval)
-    const head = this.add.ellipse(0, -20, 40, 60, 0x8B4513);
-    head.setStrokeStyle(3, 0x654321);
+    const head = this.add.ellipse(0, -30, 50, 80, 0x8B4513);
+    head.setStrokeStyle(4, 0x654321);
     
     // Handle
-    const handle = this.add.rectangle(0, 15, 8, 50, 0x654321);
+    const handle = this.add.rectangle(0, 20, 12, 60, 0x654321);
     
     // Strings (vertical)
-    for (let i = -15; i <= 15; i += 5) {
-      const string = this.add.line(0, -20, i, -45, i, 5, 0xFFFFFF);
-      string.setLineWidth(1);
+    for (let i = -20; i <= 20; i += 6) {
+      const string = this.add.line(0, -30, i, -60, i, 0, 0xFFFFFF);
+      string.setLineWidth(1.5);
       container.add(string);
     }
     
     // Strings (horizontal)
-    for (let i = -40; i <= 0; i += 8) {
-      const string = this.add.line(0, -20, -18, i, 18, i, 0xFFFFFF);
-      string.setLineWidth(1);
+    for (let i = -50; i <= -10; i += 10) {
+      const string = this.add.line(0, -30, -22, i, 22, i, 0xFFFFFF);
+      string.setLineWidth(1.5);
       container.add(string);
     }
     
     // Grip tape
-    const grip = this.add.rectangle(0, 25, 10, 20, 0x333333);
+    const grip = this.add.rectangle(0, 35, 14, 30, 0x333333);
+    
+    // Grip lines
+    for (let i = 0; i < 5; i++) {
+      const gripLine = this.add.rectangle(0, 25 + i * 5, 16, 1, 0x555555);
+      container.add(gripLine);
+    }
     
     container.add([head, handle, grip]);
-    container.setScale(0.8);
+    container.setScale(0.6);
     container.setAngle(handed === 'right' ? -15 : 15);
     container.setDepth(3);
     
     return container;
   }
-  
+
+  private updateRacketPositions() {
+    if (this.myRacket) {
+      this.positionRacket(this.myRacket, this.me.x, this.me.y, this.mySide, this.myHandedness);
+    }
+    if (this.oppRacket) {
+      const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
+      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSide, this.oppHandedness);
+    }
+  }
+
+  private positionRacket(
+    racket: Phaser.GameObjects.Image | Phaser.GameObjects.Container, 
+    px: number, 
+    py: number, 
+    side: PlayerSide, 
+    handed: Handed
+  ) {
+    const yOffset = side === 'bottom' ? -60 : +60;
+    const xOffset = handed === 'right' ? +20 : -20;
+    racket.setPosition(px + xOffset, py + yOffset);
+  }
+
+  private createMenuButton() {
+    const w = this.scale.width;
+    const menuBtn = this.add.rectangle(w - 60, 30, 100, 40, 0x333333)
+      .setStrokeStyle(2, 0x666666)
+      .setInteractive()
+      .on('pointerdown', () => { 
+        window.location.href = window.location.origin + '/play'; 
+      })
+      .on('pointerover', () => menuBtn.setFillStyle(0x555555))
+      .on('pointerout',  () => menuBtn.setFillStyle(0x333333));
+    
+    this.add.text(w - 60, 30, 'Menu', { 
+      fontFamily: 'Arial', 
+      fontSize: '16px', 
+      color: '#fff' 
+    }).setOrigin(0.5);
+  }
+
+  // Multiplayer socket methods
+  private bindSocket(){
+    if(!this.socket) return;
+    this.socket.onConnect(()=> console.log('[socket] connected'));
+    this.socket.onConnectError((e)=> console.warn('[socket] error', e));
+
+    this.socket.onMatchmakingStarted(()=> this.showToast('Matchmaking...'));
+    this.socket.onMatchFound((m: Match)=>{
+      this.assignSides(m);
+      this.showToast('Match found');
+      this.socket?.sendReady();
+    });
+
+    // Server state updates
+    (this.socket as any)['socket'].on('pong_state', (state:any)=> this.applyState(state));
+  }
+
+  private assignSides(match: Match){
+    const ids = match.players.map(p=>p.id).sort();
+    const bottomId = ids[0];
+    this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
+  }
+
+  private applyState(s: any){
+    // Update positions
+    this.me.setPosition(s.players[this.mySide].x, s.players[this.mySide].y);
+    const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
+    this.opp.setPosition(s.players[oppSide].x, s.players[oppSide].y);
+
+    this.ball.setPosition(s.ball.x, s.ball.y);
+
+    // Update fury bar
+    const fury = s.players[this.mySide].fury as number;
+    const h = Phaser.Math.Linear(0, 300, Phaser.Math.Clamp(fury,0,100)/100);
+    this.furyBar.setSize(14, h);
+    this.furyBar.setY(this.scale.height/2 + h/2);
+
+    // Update score
+    this.scoreTop    = s.players.top.score;
+    this.scoreBottom = s.players.bottom.score;
+    this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+
+    this.serverSide = s.serverSide;
+    this.serving    = s.serving;
+
+    // Update racket positions
+    this.updateRacketPositions();
+  }
+
+  private sendInput(input: any){ 
+    this.socket?.sendInput(input); 
+  }
+
   private toast?: Phaser.GameObjects.Text;
   private showToast(msg:string){
     if(this.toast) this.toast.destroy();
-    this.toast = this.add.text(this.scale.width/2, 60, msg, { fontFamily:'Arial', fontSize:'20px', color:'#fff', backgroundColor:'#0008', padding:{x:10,y:6}}).setOrigin(0.5);
-    this.tweens.add({ targets:this.toast, alpha:0, duration:1600, delay:800, onComplete: ()=> this.toast?.destroy() });
+    this.toast = this.add.text(this.scale.width/2, 60, msg, { 
+      fontFamily:'Arial', 
+      fontSize:'20px', 
+      color:'#fff', 
+      backgroundColor:'#0008', 
+      padding:{x:10,y:6}
+    }).setOrigin(0.5);
+    
+    this.tweens.add({ 
+      targets:this.toast, 
+      alpha:0, 
+      duration:1600, 
+      delay:800, 
+      onComplete: ()=> this.toast?.destroy() 
+    });
+  }
+
+  destroy() {
+    if (this.trainingLoop) {
+      this.trainingLoop.destroy();
+    }
+    super.destroy();
   }
 }
