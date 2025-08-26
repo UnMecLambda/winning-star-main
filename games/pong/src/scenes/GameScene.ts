@@ -62,7 +62,10 @@ export class GameScene extends Phaser.Scene {
     // Check if training mode
     this.isTrainingMode = !this.token || params.get('mode') === 'training';
     
-    // Load racket images from racket data
+    // Always try to load starter racket for training mode
+    this.load.image('starter-racket', '/assets/rackets/starter-racket.png');
+    
+    // Load custom racket images from racket data
     const racketData = params.get('racket');
     if (racketData) {
       try {
@@ -360,7 +363,14 @@ export class GameScene extends Phaser.Scene {
 
   private createRacketSprite(isMine: boolean, handed: Handed): Phaser.GameObjects.Image {
     // Try to use PNG image first
-    const key = isMine && this.textures.exists('racket_my') ? 'racket_my' : '';
+    let key = '';
+    
+    if (isMine && this.textures.exists('racket_my')) {
+      key = 'racket_my';
+    } else if (this.textures.exists('starter-racket')) {
+      // Fallback to starter racket for training mode
+      key = 'starter-racket';
+    }
 
     if (key) {
       const img = this.add.image(0, 0, key);
@@ -386,6 +396,42 @@ export class GameScene extends Phaser.Scene {
     const xOffset = handed === 'right' ? +15 : -15;
     r.setPosition(px + xOffset, py + yOffset);
   }
+
+  private createVisualRacket(handed: Handed): Phaser.GameObjects.Container {
+    const container = this.add.container(0, 0);
+    
+    // Racket head (oval)
+    const head = this.add.ellipse(0, -20, 40, 60, 0x8B4513);
+    head.setStrokeStyle(3, 0x654321);
+    
+    // Handle
+    const handle = this.add.rectangle(0, 15, 8, 50, 0x654321);
+    
+    // Strings (vertical)
+    for (let i = -15; i <= 15; i += 5) {
+      const string = this.add.line(0, -20, i, -45, i, 5, 0xFFFFFF);
+      string.setLineWidth(1);
+      container.add(string);
+    }
+    
+    // Strings (horizontal)
+    for (let i = -40; i <= 0; i += 8) {
+      const string = this.add.line(0, -20, -18, i, 18, i, 0xFFFFFF);
+      string.setLineWidth(1);
+      container.add(string);
+    }
+    
+    // Grip tape
+    const grip = this.add.rectangle(0, 25, 10, 20, 0x333333);
+    
+    container.add([head, handle, grip]);
+    container.setScale(0.8);
+    container.setAngle(handed === 'right' ? -15 : 15);
+    container.setDepth(3);
+    
+    return container;
+  }
+  
   private toast?: Phaser.GameObjects.Text;
   private showToast(msg:string){
     if(this.toast) this.toast.destroy();
