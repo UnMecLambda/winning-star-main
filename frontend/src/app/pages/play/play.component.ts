@@ -32,14 +32,13 @@ export class PlayComponent implements OnInit {
   }
 
   findMatch(gameType: string) {
-    // Navigate to pong with multiplayer mode - force reload to ensure params are read
-    const url = `/pong?multiplayer=true`;
-    window.location.href = url;
+    // Navigate to pong without practice parameter (will use multiplayer if token exists)
+    this.router.navigate(['/pong']);
   }
 
   playPong() {
-    // Navigate to pong in training mode (default) - force reload
-    window.location.href = '/pong';
+    // Navigate to pong in practice mode
+    this.router.navigate(['/pong'], { queryParams: { practice: 'true' } });
   }
 
   cancelSearch() {

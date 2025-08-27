@@ -72,19 +72,19 @@ export class GameScene extends Phaser.Scene {
     console.log('URL search params:', window.location.search);
     console.log('All params:', Array.from(params.entries()));
     
-    // Check for multiplayer mode
-    const multiplayerParam = params.get('multiplayer');
-    const forceMultiplayer = multiplayerParam === 'true';
-    const hasValidToken = this.token && this.token.length > 50; // Token must be substantial
+    // Check for practice mode (explicit training)
+    const practiceParam = params.get('practice');
+    const isPracticeMode = practiceParam === 'true';
     
-    console.log('Multiplayer param value:', multiplayerParam);
-    console.log('Force multiplayer:', forceMultiplayer);
+    // Use training mode if:
+    // 1. Explicitly requested practice mode
+    // 2. No valid token (fallback)
+    const hasValidToken = this.token && this.token.length > 50;
+    this.isTrainingMode = isPracticeMode || !hasValidToken;
     
-    // Use multiplayer if explicitly requested AND has valid token
-    this.isTrainingMode = !(forceMultiplayer && hasValidToken);
-    
-    console.log('Training mode check:', {
-      forceMultiplayer,
+    console.log('Mode detection:', {
+      practiceParam,
+      isPracticeMode,
       hasValidToken,
       isTrainingMode: this.isTrainingMode,
       tokenLength: this.token?.length || 0
@@ -508,18 +508,18 @@ export class GameScene extends Phaser.Scene {
       color: '#fff' 
     }).setOrigin(0.5);
     
-    // Add training/multiplayer toggle buttons
+    // Add practice/multiplayer toggle buttons
     const trainingBtn = this.add.rectangle(w - 180, 30, 100, 40, 0x2d5a27)
       .setStrokeStyle(2, 0x4a7c59)
       .setInteractive()
       .on('pointerdown', () => {
-        console.log('Training button clicked');
-        window.location.href = '/pong';
+        console.log('Practice button clicked');
+        window.location.href = '/pong?practice=true';
       })
       .on('pointerover', () => trainingBtn.setFillStyle(0x4a7c59))
       .on('pointerout', () => trainingBtn.setFillStyle(0x2d5a27));
     
-    this.add.text(w - 180, 30, 'Training', {
+    this.add.text(w - 180, 30, 'Practice', {
       fontFamily: 'Arial',
       fontSize: '14px',
       color: '#fff'
@@ -530,7 +530,7 @@ export class GameScene extends Phaser.Scene {
       .setInteractive()
       .on('pointerdown', () => {
         console.log('Multiplayer button clicked');
-        window.location.href = '/pong?multiplayer=true';
+        window.location.href = '/pong';
       })
       .on('pointerover', () => multiBtn.setFillStyle(0x764ba2))
       .on('pointerout', () => multiBtn.setFillStyle(0x667eea));
