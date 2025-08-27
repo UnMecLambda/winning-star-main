@@ -5,6 +5,7 @@ import { GameScene } from './scenes/GameScene';
 const params = new URLSearchParams(location.search);
 const token = params.get('token') || '';
 
+console.log('Main.ts - Token from URL:', token ? 'Present' : 'Missing', 'Length:', token.length);
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 720,

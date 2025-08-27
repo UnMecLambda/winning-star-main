@@ -70,8 +70,17 @@ export class GameScene extends Phaser.Scene {
     
     const params = new URLSearchParams(location.search);
     
-    // Check if training mode
-    this.isTrainingMode = !this.token || params.get('mode') === 'training';
+    // Check if training mode - more explicit logic
+    const hasToken = this.token && this.token.length > 0;
+    const isExplicitTraining = params.get('mode') === 'training';
+    this.isTrainingMode = !hasToken || isExplicitTraining;
+    
+    console.log('Training mode check:', {
+      hasToken,
+      isExplicitTraining,
+      isTrainingMode: this.isTrainingMode,
+      tokenLength: this.token?.length || 0
+    });
     
     // Always try to load starter racket for training mode
     this.load.image('starter-racket', '/assets/rackets/starter-racket.png');
@@ -156,10 +165,14 @@ export class GameScene extends Phaser.Scene {
     this.createMenuButton();
 
     // Setup game mode
-    if (this.isTrainingMode) {
+    console.log('Checking game mode - isTrainingMode:', this.isTrainingMode, 'token:', !!this.token);
+    
+    if (this.isTrainingMode || !this.token) {
+      console.log('Starting training mode immediately');
       console.log('Starting training mode immediately');
       this.startTrainingMode();
     } else {
+      console.log('Setting up multiplayer mode');
       console.log('Setting up multiplayer mode');
     }
   }
@@ -197,7 +210,7 @@ export class GameScene extends Phaser.Scene {
 
   private startTrainingMode() {
     console.log('Training mode started');
-    this.showToast('Training Mode - Click to serve!', 3000);
+    this.showToast('🎾 Training Mode - Click to serve!', 4000);
     
     // Initialize training state
     this.mySide = 'bottom';
@@ -216,6 +229,8 @@ export class GameScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
+    
+    console.log('Training loop started, serving:', this.serving);
   }
 
   private setupMultiplayerMode() {
