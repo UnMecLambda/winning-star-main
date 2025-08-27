@@ -70,11 +70,10 @@ export class GameScene extends Phaser.Scene {
     
     const params = new URLSearchParams(location.search);
     
-    const practice = params.get('practice');
     // Check if training mode - more explicit logic
     const hasToken = this.token && this.token.length > 0;
     const isExplicitTraining = params.get('mode') === 'training';
-    const isPracticeMode = practice === 'true';
+    const isPracticeMode = params.get('practice') === 'true';
     this.isTrainingMode = !hasToken || isExplicitTraining || isPracticeMode;
     
     console.log('Training mode check:', {
