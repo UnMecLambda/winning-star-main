@@ -73,11 +73,13 @@ export class GameScene extends Phaser.Scene {
     // Check if training mode - more explicit logic
     const hasToken = this.token && this.token.length > 0;
     const isExplicitTraining = params.get('mode') === 'training';
-    this.isTrainingMode = !hasToken || isExplicitTraining;
+    const isPracticeMode = params.get('practice') === 'true';
+    this.isTrainingMode = !hasToken || isExplicitTraining || isPracticeMode;
     
     console.log('Training mode check:', {
       hasToken,
       isExplicitTraining,
+      isPracticeMode,
       isTrainingMode: this.isTrainingMode,
       tokenLength: this.token?.length || 0
     });

@@ -22,5 +22,18 @@ new Phaser.Game(config);
 // UI bindings
 const q = document.getElementById('queueBtn')!;
 const p = document.getElementById('practiceBtn')!;
-q.addEventListener('click', () => window.dispatchEvent(new CustomEvent('pong.findMatch')));
-p.addEventListener('click', () => window.dispatchEvent(new CustomEvent('pong.practice')));
+
+q.addEventListener('click', () => {
+  // Reload with matchmaking mode
+  const url = new URL(window.location.href);
+  url.searchParams.delete('practice');
+  url.searchParams.delete('mode');
+  window.location.href = url.toString();
+});
+
+p.addEventListener('click', () => {
+  // Reload with practice mode
+  const url = new URL(window.location.href);
+  url.searchParams.set('practice', 'true');
+  window.location.href = url.toString();
+});

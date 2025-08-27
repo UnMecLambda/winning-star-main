@@ -36,7 +36,8 @@ export class PlayComponent implements OnInit {
   }
 
   playPong() {
-    this.router.navigate(['/pong']);
+    // Navigate to pong with practice mode
+    this.router.navigate(['/pong'], { queryParams: { practice: 'true' } });
   }
 
   cancelSearch() {
