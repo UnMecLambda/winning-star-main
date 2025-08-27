@@ -585,7 +585,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     
-    console.log('Applying state - mySide:', this.mySide, 'serverSide:', s.serverSide, 'serving:', s.serving);
+    console.log('Applying state - mySide:', this.mySide, 'serverSide:', s.serverSide, 'serving:', s.serving, 'ball:', s.ball);
     
     // Appliquer les positions des joueurs
     if (this.mySide === 'bottom') {
@@ -644,7 +644,9 @@ export class GameScene extends Phaser.Scene {
     // Message de service
     const isMyServe = this.serving && this.serverSide === this.mySide;
     if (isMyServe) {
-      this.showToast('Your serve - Click to serve!', 1000);
+      this.showToast('Your serve - Click to serve!', 2000);
+    } else if (this.serving) {
+      this.showToast('Opponent is serving...', 2000);
     }
     
     // Mise à jour des raquettes

@@ -87,7 +87,7 @@ export class PongRoom {
     if (this.players.bottom.ready && this.players.top.ready && !this.interval){
       console.log('Starting pong game:', this.gameId);
       
-      // Start game loop immediately
+      // Start game loop at 60 FPS
       this.interval = setInterval(()=> this.tick(), 1000/60);     // logique 60 fps
       
       // Send game started event first
@@ -95,13 +95,13 @@ export class PongRoom {
       
       // Then broadcast initial state
       this.broadcastState();
-      
-      // Continue broadcasting at 20 Hz
-      setInterval(()=> this.broadcastState(), 50);
     }
   }
 
   private tick(){
+    // Always broadcast state, even when serving
+    this.broadcastState();
+    
     if (this.serving) return; // en attente de service
 
     // Mouvement
@@ -219,6 +219,10 @@ export class PongRoom {
       const speed = base * (1 + p.fury * 0.002);
       this.ball.vx = Math.sin(rad) * speed;
       this.ball.vy = (side === 'bottom' ? -1 : 1) * Math.cos(rad) * speed;
+      
+      // Broadcast immediately after serve
+      console.log('Ball served, new velocity:', this.ball.vx, this.ball.vy);
+      this.broadcastState();
     }
   }
 
