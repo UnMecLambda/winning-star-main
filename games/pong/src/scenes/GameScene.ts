@@ -90,6 +90,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(){
+    console.log('GameScene created, training mode:', this.isTrainingMode);
+    
     const w = this.scale.width, h = this.scale.height;
 
     const margin = 60;
@@ -123,22 +125,12 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(w/2+2, courtY + courtH/2+2, courtW, 2, 0x000000).setAlpha(.25).setDepth(1.9);
     }
 
-    // Players (circles) - positioned based on view
-    if (this.mySide === 'bottom') {
-      this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
-      this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
-    } else {
-      // For top player, flip the view so they see themselves at bottom
-      this.me  = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x111111);
-      this.opp = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x222244);
-    }
+    // Players (circles) - always show me at bottom
+    this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
+    this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
     
-    // Ball - positioned based on view
-    if (this.mySide === 'bottom') {
-      this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
-    } else {
-      this.ball = this.add.circle(w/2, this.courtBounds.top + 80, 10, 0xffde59);
-    }
+    // Ball - positioned for serving
+    this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
 
     // Create rackets
     this.myRacket  = this.createRacketSprite(true,  this.myHandedness);
@@ -161,7 +153,7 @@ export class GameScene extends Phaser.Scene {
 
     // Setup game mode
     if (this.isTrainingMode) {
-      // Start training mode immediately
+      console.log('Starting training mode immediately');
       this.startTrainingMode();
     } else {
       this.setupMultiplayerMode();
@@ -192,7 +184,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startTrainingMode() {
-    console.log('Starting training mode');
+    console.log('Training mode started');
     this.showToast('Training Mode - Click to serve!', 3000);
     
     // Initialize training state
@@ -212,15 +204,12 @@ export class GameScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
-    
-    // Force start immediately
-    this.updateTraining();
   }
 
   private setupMultiplayerMode() {
     this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
     const backendUrl = (window as any).IBET_BACKEND_URL || 
-                      (new URLSearchParams(location.search).get('api') || 'http://localhost:4000');
+                      (new URLSearchParams(location.search).get('api') || 'http://localhost:3001');
     
     if (this.token) {
       import('../network/GameSocket').then(() => {
@@ -233,15 +222,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTrainingInput(pointer: Phaser.Input.Pointer) {
-    // Clamp to player's half of court based on view
-    let minY, maxY;
-    if (this.mySide === 'bottom') {
-      minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-      maxY = this.courtBounds.bottom - 40;
-    } else {
-      minY = this.courtBounds.top + 40;
-      maxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-    }
+    // Clamp to player's half of court (always bottom half for training)
+    const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+    const maxY = this.courtBounds.bottom - 40;
     
     const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
@@ -353,21 +336,12 @@ export class GameScene extends Phaser.Scene {
   private resetTrainingBall() {
     this.serving = true;
     
-    // Reset player position to center of their side
+    // Reset player position to center of their side (always bottom)
     const centerX = this.scale.width / 2;
-    let playerY, ballY;
-    
-    if (this.mySide === 'bottom') {
-      playerY = this.courtBounds.bottom - 40;
-      ballY = playerY - 40;
-    } else {
-      playerY = this.courtBounds.top + 40;
-      ballY = playerY + 40;
-    }
+    const playerY = this.courtBounds.bottom - 40;
+    const ballY = playerY - 40;
     
     this.me.setPosition(centerX, playerY);
-    
-    // Position ball for serve based on view
     this.ball.setPosition(centerX, ballY);
     this.ballVelocity.x = 0;
     this.ballVelocity.y = 0;
@@ -402,38 +376,38 @@ export class GameScene extends Phaser.Scene {
   private createVisualRacket(handed: Handed): Phaser.GameObjects.Container {
     const container = this.add.container(0, 0);
     
-    // Racket head (oval)
-    const head = this.add.ellipse(0, -20, 35, 55, 0x8B4513);
-    head.setStrokeStyle(4, 0x654321);
+    // Racket head (oval) - reduced size
+    const head = this.add.ellipse(0, -15, 25, 40, 0x8B4513);
+    head.setStrokeStyle(3, 0x654321);
     
-    // Handle
-    const handle = this.add.rectangle(0, 15, 8, 40, 0x654321);
+    // Handle - reduced size
+    const handle = this.add.rectangle(0, 10, 6, 30, 0x654321);
     
-    // Strings (vertical)
-    for (let i = -15; i <= 15; i += 5) {
-      const string = this.add.line(0, -20, i, -40, i, 0, 0xFFFFFF);
-      string.setLineWidth(1.5);
+    // Strings (vertical) - reduced size
+    for (let i = -10; i <= 10; i += 4) {
+      const string = this.add.line(0, -15, i, -30, i, 0, 0xFFFFFF);
+      string.setLineWidth(1);
       container.add(string);
     }
     
-    // Strings (horizontal)
-    for (let i = -35; i <= -5; i += 8) {
-      const string = this.add.line(0, -20, -15, i, 15, i, 0xFFFFFF);
-      string.setLineWidth(1.5);
+    // Strings (horizontal) - reduced size
+    for (let i = -25; i <= -5; i += 6) {
+      const string = this.add.line(0, -15, -10, i, 10, i, 0xFFFFFF);
+      string.setLineWidth(1);
       container.add(string);
     }
     
-    // Grip tape
-    const grip = this.add.rectangle(0, 25, 10, 20, 0x333333);
+    // Grip tape - reduced size
+    const grip = this.add.rectangle(0, 20, 8, 15, 0x333333);
     
-    // Grip lines
-    for (let i = 0; i < 4; i++) {
-      const gripLine = this.add.rectangle(0, 18 + i * 4, 12, 1, 0x555555);
+    // Grip lines - reduced size
+    for (let i = 0; i < 3; i++) {
+      const gripLine = this.add.rectangle(0, 15 + i * 3, 10, 1, 0x555555);
       container.add(gripLine);
     }
     
     container.add([head, handle, grip]);
-    container.setScale(0.4); // Reduced scale
+    container.setScale(0.8); // Further reduced scale
     container.setAngle(handed === 'right' ? -15 : 15);
     container.setDepth(3);
     
@@ -442,11 +416,10 @@ export class GameScene extends Phaser.Scene {
 
   private updateRacketPositions() {
     if (this.myRacket) {
-      this.positionRacket(this.myRacket, this.me.x, this.me.y, this.mySide, this.myHandedness);
+      this.positionRacket(this.myRacket, this.me.x, this.me.y, 'bottom', this.myHandedness);
     }
     if (this.oppRacket) {
-      const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
-      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSide, this.oppHandedness);
+      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, 'top', this.oppHandedness);
     }
   }
 
@@ -457,16 +430,9 @@ export class GameScene extends Phaser.Scene {
     side: PlayerSide, 
     handed: Handed
   ) {
-    // Adjust offset based on actual visual position, not logical side
-    let yOffset;
-    if (this.mySide === 'bottom') {
-      yOffset = side === 'bottom' ? -60 : +60;
-    } else {
-      // For top player view, flip the offsets
-      yOffset = side === 'top' ? -60 : +60;
-    }
-    
-    const xOffset = handed === 'right' ? +20 : -20;
+    // Adjust offset based on side
+    const yOffset = side === 'bottom' ? -40 : +40;
+    const xOffset = handed === 'right' ? +15 : -15;
     racket.setPosition(px + xOffset, py + yOffset);
   }
 
@@ -496,6 +462,7 @@ export class GameScene extends Phaser.Scene {
 
     this.socket.onMatchmakingStarted(()=> this.showToast('Matchmaking...'));
     this.socket.onMatchFound((m: Match)=>{
+      console.log('Match found, assigning sides:', m);
       this.assignSides(m);
       this.showToast('Match found - Get ready!', 2000);
       this.socket?.sendReady();
@@ -519,6 +486,11 @@ export class GameScene extends Phaser.Scene {
     const bottomId = ids[0];
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
     console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
+    
+    // If I'm the top player, I need to see myself at the bottom
+    if (this.mySide === 'top') {
+      console.log('I am top player, will flip view');
+    }
   }
 
   private applyState(s: any){
@@ -527,23 +499,23 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     
-    // Transform coordinates based on view
+    // Transform coordinates based on my view
     const transformY = (y: number) => {
       if (this.mySide === 'top') {
-        // Flip Y coordinate for top player
+        // Flip Y coordinate for top player so they see themselves at bottom
         const courtCenter = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
         return courtCenter + (courtCenter - y);
       }
       return y;
     };
     
-    // Update my position
+    // Update my position (I always see myself as bottom)
     if (s.players[this.mySide]) {
       const myData = s.players[this.mySide];
       this.me.setPosition(myData.x, transformY(myData.y));
     }
     
-    // Update opponent position
+    // Update opponent position (I always see opponent as top)
     const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
     if (s.players[oppSide]) {
       const oppData = s.players[oppSide];
@@ -570,7 +542,7 @@ export class GameScene extends Phaser.Scene {
         this.scoreBottom = s.players.bottom.score;
         this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
       } else {
-        // Flip score display for top player
+        // Flip score display for top player (I see my score on the right)
         this.scoreTop = s.players.bottom.score;
         this.scoreBottom = s.players.top.score;
         this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
