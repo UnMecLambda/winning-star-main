@@ -70,10 +70,11 @@ export class GameScene extends Phaser.Scene {
     
     const params = new URLSearchParams(location.search);
     
+    const practice = params.get('practice');
     // Check if training mode - more explicit logic
     const hasToken = this.token && this.token.length > 0;
     const isExplicitTraining = params.get('mode') === 'training';
-    const isPracticeMode = params.get('practice') === 'true';
+    const isPracticeMode = practice === 'true';
     this.isTrainingMode = !hasToken || isExplicitTraining || isPracticeMode;
     
     console.log('Training mode check:', {
@@ -163,19 +164,25 @@ export class GameScene extends Phaser.Scene {
     // Setup input handlers
     this.setupInputHandlers();
 
-    // Menu button
+    // Create menu button first
     this.createMenuButton();
-
+    
+    // Small delay to ensure everything is ready
+    this.time.delayedCall(100, () => {
+      this.setupGameMode();
+    });
+  }
+  
+  private setupGameMode() {
     // Setup game mode
     console.log('Checking game mode - isTrainingMode:', this.isTrainingMode, 'token:', !!this.token);
     
     if (this.isTrainingMode || !this.token) {
       console.log('Starting training mode immediately');
-      console.log('Starting training mode immediately');
       this.startTrainingMode();
     } else {
       console.log('Setting up multiplayer mode');
-      console.log('Setting up multiplayer mode');
+      this.setupMultiplayerMode();
     }
   }
 
