@@ -194,7 +194,7 @@ export class PongRoom {
     const side = sender.id === this.players.bottom.id ? 'bottom' : 'top';
     const p = this.players[side];
     
-    console.log(`Input from ${side}:`, input.type, input.x, input.y);
+    console.log(`Input from ${side}:`, input.type, input.type === 'move' ? `x:${input.x} y:${input.y}` : '');
 
     if (input.type === 'move'){
       // clamp aux bornes de sa moitié
