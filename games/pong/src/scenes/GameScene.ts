@@ -178,7 +178,18 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', () => {
       if (this.isTrainingMode) {
         this.serveTrainingBall();
-      } else if (this.serving && this.mySide === this.serverSide) {
+      } else if (this.serving) {
+        console.log('Attempting to serve - mySide:', this.mySide, 'serverSide:', this.serverSide);
+        // Check if it's my turn to serve
+        const canServe = this.mySide === this.serverSide;
+        console.log('Can serve:', canServe);
+        if (canServe) {
+          console.log('Sending serve input');
+          this.sendInput({ type:'serve' });
+        } else {
+          this.showToast('Wait for your turn to serve', 1000);
+        }
+      } else {
         this.sendInput({ type:'serve' });
       }
     });
@@ -479,7 +490,6 @@ export class GameScene extends Phaser.Scene {
     this.socket.onMatchFound((m: Match)=>{
       console.log('Match found, assigning sides:', m);
       this.assignSides(m);
-      this.applyViewTransformation();
       this.showToast('Match found - Get ready!', 2000);
       this.socket?.sendReady();
     });
@@ -502,37 +512,39 @@ export class GameScene extends Phaser.Scene {
     const bottomId = ids[0];
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
     console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
-  }
-
-  private applyViewTransformation() {
+    
+    // Apply view transformation immediately after side assignment
     if (this.mySide === 'top') {
-      console.log('I am top player, flipping view so I see myself at bottom');
-      this.flipViewForTopPlayer();
-      this.viewFlipped = true;
+      console.log('I am top player, applying view transformation');
+      this.applyViewTransformation();
     }
   }
 
+  private applyViewTransformation() {
+    console.log('Applying view transformation for top player');
+    this.flipViewForTopPlayer();
+    this.viewFlipped = true;
+  }
+
   private flipViewForTopPlayer() {
-    // Inverser visuellement tout le terrain
-    const container = this.add.container(this.scale.width/2, this.scale.height/2);
+    console.log('Flipping view for top player');
     
-    // Ajouter tous les éléments visuels au container
-    container.add([
-      this.court,
-      this.netLine,
-      this.ball,
-      this.me,
-      this.opp,
-      this.myRacket,
-      this.oppRacket
-    ]);
+    // Create a container for all game elements
+    const gameContainer = this.add.container(this.scale.width/2, this.scale.height/2);
     
-    // Rotation de 180 degrés
-    container.setRotation(Math.PI);
+    // Move all game elements to the container
+    gameContainer.add([this.court, this.netLine, this.ball, this.me, this.opp]);
+    if (this.myRacket) gameContainer.add(this.myRacket);
+    if (this.oppRacket) gameContainer.add(this.oppRacket);
     
-    // Garder le HUD normal (score, etc.)
+    // Rotate 180 degrees
+    gameContainer.setRotation(Math.PI);
+    
+    // Keep HUD elements normal (outside container)
     this.scoreText.setDepth(1000);
     this.furyBar.setDepth(1000);
+    
+    console.log('View flipped successfully');
   }
 
   private transformCoordinatesForView(x: number, y: number): {x: number, y: number} {
@@ -573,7 +585,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     
-    console.log('Applying state for side:', this.mySide, 'viewFlipped:', this.viewFlipped);
+    console.log('Applying state - mySide:', this.mySide, 'serverSide:', s.serverSide, 'serving:', s.serving);
     
     // Appliquer les positions des joueurs
     if (this.mySide === 'bottom') {
@@ -641,6 +653,7 @@ export class GameScene extends Phaser.Scene {
 
   private sendInput(input: any) {
     if (!this.socket) return;
+    console.log('Sending input:', input);
     
     // Transformer les coordonnées si nécessaire
     if (input.type === 'move') {
