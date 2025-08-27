@@ -190,15 +190,9 @@ export class GameScene extends Phaser.Scene {
       if (this.isTrainingMode) {
         this.handleTrainingInput(pointer);
       } else {
-        // In multiplayer, clamp movement to player's half
-        let minY, maxY;
-        if (this.mySide === 'bottom') {
-          minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-          maxY = this.courtBounds.bottom - 40;
-        } else {
-          minY = this.courtBounds.top + 40;
-          maxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-        }
+        // In multiplayer, always move in bottom half visually
+        const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+        const maxY = this.courtBounds.bottom - 40;
         
         const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
         const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
@@ -207,8 +201,16 @@ export class GameScene extends Phaser.Scene {
         this.me.setPosition(clampedX, clampedY);
         this.updateRacketPositions();
         
-        // Send to server
-        this.sendInput({ type:'move', x:clampedX, y:clampedY });
+        // Send to server (transform coordinates if I'm top player)
+        let serverX = clampedX;
+        let serverY = clampedY;
+        
+        if (this.mySide === 'top') {
+          // Transform visual bottom position to server top position
+          serverY = this.courtBounds.top + 40 + (this.courtBounds.bottom - 40 - clampedY);
+        }
+        
+        this.sendInput({ type:'move', x:serverX, y:serverY });
       }
     });
     
@@ -474,14 +476,10 @@ export class GameScene extends Phaser.Scene {
 
   private updateRacketPositions() {
     if (this.myRacket) {
-      // En training, toujours bottom. En multi, selon mySide
-      const mySideForRacket = this.isTrainingMode ? 'bottom' : this.mySide;
-      this.positionRacket(this.myRacket, this.me.x, this.me.y, mySideForRacket, this.myHandedness);
+      this.positionRacket(this.myRacket, this.me.x, this.me.y, 'bottom', this.myHandedness);
     }
     if (this.oppRacket) {
-      // En training, toujours top. En multi, côté opposé
-      const oppSideForRacket = this.isTrainingMode ? 'top' : (this.mySide === 'bottom' ? 'top' : 'bottom');
-      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSideForRacket, this.oppHandedness);
+      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, 'top', this.oppHandedness);
     }
   }
 
@@ -492,16 +490,16 @@ export class GameScene extends Phaser.Scene {
     side: PlayerSide, 
     handed: Handed
   ) {
-    // Offset plus petit pour les raquettes
-    const yOffset = side === 'bottom' ? -20 : +20;
-    const xOffset = handed === 'right' ? +8 : -8;
+    // Position the racket close to the player
+    const yOffset = side === 'bottom' ? -30 : +30;
+    const xOffset = handed === 'right' ? +15 : -15;
     racket.setPosition(px + xOffset, py + yOffset);
     
-    // Rotation légère selon le côté et la main
+    // Slight rotation based on side and handedness
     if (side === 'bottom') {
-      racket.setRotation(handed === 'right' ? -0.1 : 0.1);
+      racket.setRotation(handed === 'right' ? -0.2 : 0.2);
     } else {
-      racket.setRotation(handed === 'right' ? 0.1 : -0.1);
+      racket.setRotation(handed === 'right' ? 0.2 : -0.2);
     }
   }
 
@@ -662,9 +660,9 @@ export class GameScene extends Phaser.Scene {
     if (s.serverSide !== undefined) this.serverSide = s.serverSide;
     if (s.serving !== undefined) this.serving = s.serving;
     
-    // Appliquer les positions des joueurs
+    // Always show me at bottom, opponent at top (visual consistency)
     if (this.mySide === 'bottom') {
-      // Je suis le joueur bottom
+      // I am bottom player
       if (s.players.bottom) {
         this.me.setPosition(s.players.bottom.x, s.players.bottom.y);
       }
@@ -674,30 +672,23 @@ export class GameScene extends Phaser.Scene {
       this.scoreBottom = s.players.bottom?.score || 0;
       this.scoreTop = s.players.top?.score || 0;
     } else {
-      // Je suis le joueur top - j'inverse ma vue
+      // I am top player - show me at bottom visually
       if (s.players.top) {
-        // Ma position (je me vois en bas)
-        const myPos = this.transformCoordinatesFromServer(s.players.top.x, s.players.top.y);
-        this.me.setPosition(myPos.x, myPos.y);
+        // My position shown at bottom
+        this.me.setPosition(s.players.top.x, this.courtBounds.bottom - 40);
       }
       if (s.players.bottom) {
-        // Position de l'adversaire (je le vois en haut)
-        const oppPos = this.transformCoordinatesFromServer(s.players.bottom.x, s.players.bottom.y);
-        this.opp.setPosition(oppPos.x, oppPos.y);
+        // Opponent position shown at top
+        this.opp.setPosition(s.players.bottom.x, this.courtBounds.top + 40);
       }
-      // Score inversé pour moi
+      // Swap scores for visual consistency
       this.scoreBottom = s.players.top?.score || 0;
       this.scoreTop = s.players.bottom?.score || 0;
     }
     
-    // Position de la balle
+    // Ball position
     if (s.ball) {
-      if (this.mySide === 'top') {
-        const ballPos = this.transformCoordinatesFromServer(s.ball.x, s.ball.y);
-        this.ball.setPosition(ballPos.x, ballPos.y);
-      } else {
-        this.ball.setPosition(s.ball.x, s.ball.y);
-      }
+      this.ball.setPosition(s.ball.x, s.ball.y);
     }
     
     // Mise à jour du score

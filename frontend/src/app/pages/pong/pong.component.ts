@@ -15,7 +15,20 @@ export class PongComponent {
     private auth: AuthService,
     private racketService: RacketService
   ) {
-    this.loadGameWithRacketStats();
+    // Check if practice mode is requested
+    const urlParams = new URLSearchParams(window.location.search);
+    const isPractice = urlParams.get('practice') === 'true';
+    
+    if (isPractice) {
+      this.loadPracticeMode();
+    } else {
+      this.loadGameWithRacketStats();
+    }
+  }
+  
+  private loadPracticeMode() {
+    // Simple practice mode without racket stats
+    this.url = `${environment.gameUrl}/?practice=true`;
   }
   
   private async loadGameWithRacketStats() {
