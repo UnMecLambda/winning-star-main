@@ -160,8 +160,6 @@ export class GameScene extends Phaser.Scene {
       // En multijoueur, on attend l'assignation des côtés
       this.setupMultiplayerMode();
       this.showToast('Searching for opponent...', 5000);
-    } else {
-      this.setupMultiplayerMode();
     }
 
     // Menu button
@@ -211,6 +209,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private setupMultiplayerMode() {
     this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
     const backendUrl = (window as any).IBET_BACKEND_URL || 
                       (new URLSearchParams(location.search).get('api') || 'http://localhost:3001');
@@ -246,9 +245,8 @@ export class GameScene extends Phaser.Scene {
     
     // Send input to server if in multiplayer (coordinates are already in client space)
     if (!this.isTrainingMode && this.socket) {
-      this.sendInput({ type: 'move', x: clampedX, y: clampedY });
-      
-      this.sendInput({ type: 'move', x: serverX, y: serverY });
+      const serverCoords = this.transformCoordinatesForServer(clampedX, clampedY);
+      this.sendInput({ type: 'move', x: serverCoords.x, y: serverCoords.y });
     }
   }
 
