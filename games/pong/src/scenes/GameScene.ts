@@ -70,17 +70,16 @@ export class GameScene extends Phaser.Scene {
     
     const params = new URLSearchParams(location.search);
     
-    const practice = params.get('practice');
-    // Check if training mode - more explicit logic
-    const hasToken = this.token && this.token.length > 0;
-    const isExplicitTraining = params.get('mode') === 'training';
-    const isPracticeMode = practice === 'true';
-    this.isTrainingMode = !hasToken || isExplicitTraining || isPracticeMode;
+    // Force training mode by default unless explicitly requesting multiplayer
+    const forceMultiplayer = params.get('multiplayer') === 'true';
+    const hasValidToken = this.token && this.token.length > 50; // Token must be substantial
+    
+    // Only use multiplayer if explicitly requested AND has valid token
+    this.isTrainingMode = !forceMultiplayer || !hasValidToken;
     
     console.log('Training mode check:', {
-      hasToken,
-      isExplicitTraining,
-      isPracticeMode,
+      forceMultiplayer,
+      hasValidToken,
       isTrainingMode: this.isTrainingMode,
       tokenLength: this.token?.length || 0
     });
@@ -491,15 +490,53 @@ export class GameScene extends Phaser.Scene {
       .setStrokeStyle(2, 0x666666)
       .setInteractive()
       .on('pointerdown', () => { 
-        window.location.href = window.location.origin + '/play'; 
+        console.log('Menu button clicked');
+        window.location.href = window.location.origin + '/play';
       })
       .on('pointerover', () => menuBtn.setFillStyle(0x555555))
       .on('pointerout',  () => menuBtn.setFillStyle(0x333333));
     
-    this.add.text(w - 60, 30, 'Menu', { 
+    this.add.text(w - 60, 30, 'Home', { 
       fontFamily: 'Arial', 
       fontSize: '16px', 
       color: '#fff' 
+    }).setOrigin(0.5);
+    
+    // Add training/multiplayer toggle buttons
+    const trainingBtn = this.add.rectangle(w - 180, 30, 100, 40, 0x2d5a27)
+      .setStrokeStyle(2, 0x4a7c59)
+      .setInteractive()
+      .on('pointerdown', () => {
+        console.log('Training button clicked');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('multiplayer');
+        window.location.href = url.toString();
+      })
+      .on('pointerover', () => trainingBtn.setFillStyle(0x4a7c59))
+      .on('pointerout', () => trainingBtn.setFillStyle(0x2d5a27));
+    
+    this.add.text(w - 180, 30, 'Training', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#fff'
+    }).setOrigin(0.5);
+    
+    const multiBtn = this.add.rectangle(w - 300, 30, 100, 40, 0x667eea)
+      .setStrokeStyle(2, 0x764ba2)
+      .setInteractive()
+      .on('pointerdown', () => {
+        console.log('Multiplayer button clicked');
+        const url = new URL(window.location.href);
+        url.searchParams.set('multiplayer', 'true');
+        window.location.href = url.toString();
+      })
+      .on('pointerover', () => multiBtn.setFillStyle(0x764ba2))
+      .on('pointerout', () => multiBtn.setFillStyle(0x667eea));
+    
+    this.add.text(w - 300, 30, 'Multiplayer', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#fff'
     }).setOrigin(0.5);
   }
 
