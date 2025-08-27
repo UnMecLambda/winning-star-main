@@ -205,6 +205,9 @@ export class PongRoom {
       const maxY = side === 'bottom' ? this.BOUNDS.bottom : this.courtY + this.courtH/2;
       const y = Math.max(minY, Math.min(maxY, input.y));
       p.x = x; p.y = y;
+      
+      // Broadcast immediately for smooth movement
+      this.broadcastState();
     }
 
     if (input.type === 'serve' && this.serving && side === this.serverSide){

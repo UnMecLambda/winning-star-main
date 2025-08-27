@@ -152,16 +152,16 @@ export class GameScene extends Phaser.Scene {
     // Setup input handlers
     this.setupInputHandlers();
 
+    // Menu button
+    this.createMenuButton();
+
     // Setup game mode
     if (this.isTrainingMode) {
       console.log('Starting training mode immediately');
       this.startTrainingMode();
     } else {
-      // En multijoueur, on attend l'assignation des côtés
+      console.log('Setting up multiplayer mode');
     }
-
-    // Menu button
-    this.createMenuButton();
   }
 
   private setupInputHandlers() {
@@ -219,14 +219,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupMultiplayerMode() {
+    console.log('Setting up multiplayer mode...');
     this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
+    console.log('My user ID:', this.myUserId);
+    
     const backendUrl = (window as any).IBET_BACKEND_URL || 
                       (new URLSearchParams(location.search).get('api') || 'http://localhost:3001');
+    console.log('Backend URL:', backendUrl);
     
     if (this.token) {
-      import('../network/GameSocket').then(() => {
+      import('../network/GameSocket').then(({ GameSocket }) => {
+        console.log('Creating GameSocket...');
         this.socket = new GameSocket(backendUrl, this.token);
         this.bindSocket();
+        this.showToast('Searching for opponent...', 5000);
       });
     } else {
       this.showToast('Login required for multiplayer');
@@ -483,6 +489,8 @@ export class GameScene extends Phaser.Scene {
   // Multiplayer socket methods
   private bindSocket(){
     if(!this.socket) return;
+    console.log('Binding socket events...');
+    
     this.socket.onConnect(()=> console.log('[socket] connected'));
     this.socket.onConnectError((e)=> console.warn('[socket] error', e));
 
@@ -505,6 +513,10 @@ export class GameScene extends Phaser.Scene {
       console.log('Game started!');
       this.showToast('Game started!', 1500);
     });
+    
+    // Start matchmaking
+    console.log('Starting matchmaking...');
+    this.socket.findMatch('pong');
   }
 
   private assignSides(match: Match){
@@ -512,30 +524,41 @@ export class GameScene extends Phaser.Scene {
     const bottomId = ids[0];
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
     console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
+    console.log('Bottom player ID:', bottomId, 'All IDs:', ids);
     
     // Apply view transformation immediately after side assignment
     if (this.mySide === 'top') {
       console.log('I am top player, applying view transformation');
-      this.applyViewTransformation();
+      // Delay the transformation slightly to ensure all objects are created
+      this.time.delayedCall(100, () => {
+        this.applyViewTransformation();
+      });
     }
   }
 
   private applyViewTransformation() {
     console.log('Applying view transformation for top player');
-    this.flipViewForTopPlayer();
-    this.viewFlipped = true;
-  }
-
-  private flipViewForTopPlayer() {
-    console.log('Flipping view for top player');
     
     // Create a container for all game elements
     const gameContainer = this.add.container(this.scale.width/2, this.scale.height/2);
+    gameContainer.setName('gameContainer');
     
     // Move all game elements to the container
-    gameContainer.add([this.court, this.netLine, this.ball, this.me, this.opp]);
-    if (this.myRacket) gameContainer.add(this.myRacket);
-    if (this.oppRacket) gameContainer.add(this.oppRacket);
+    const elementsToFlip = [this.court, this.netLine, this.ball, this.me, this.opp];
+    if (this.myRacket) elementsToFlip.push(this.myRacket);
+    if (this.oppRacket) elementsToFlip.push(this.oppRacket);
+    
+    elementsToFlip.forEach(element => {
+      if (element) {
+        // Store original position relative to center
+        const relativeX = element.x - this.scale.width/2;
+        const relativeY = element.y - this.scale.height/2;
+        
+        // Add to container with relative position
+        gameContainer.add(element);
+        element.setPosition(relativeX, relativeY);
+      }
+    });
     
     // Rotate 180 degrees
     gameContainer.setRotation(Math.PI);
@@ -544,8 +567,10 @@ export class GameScene extends Phaser.Scene {
     this.scoreText.setDepth(1000);
     this.furyBar.setDepth(1000);
     
+    this.viewFlipped = true;
     console.log('View flipped successfully');
   }
+
 
   private transformCoordinatesForView(x: number, y: number): {x: number, y: number} {
     if (this.viewFlipped) {
@@ -586,6 +611,10 @@ export class GameScene extends Phaser.Scene {
     }
     
     console.log('Applying state - mySide:', this.mySide, 'serverSide:', s.serverSide, 'serving:', s.serving, 'ball:', s.ball);
+    
+    // Update serving state first
+    if (s.serverSide !== undefined) this.serverSide = s.serverSide;
+    if (s.serving !== undefined) this.serving = s.serving;
     
     // Appliquer les positions des joueurs
     if (this.mySide === 'bottom') {
@@ -637,10 +666,6 @@ export class GameScene extends Phaser.Scene {
       this.furyBar.setY(this.scale.height/2 + h/2);
     }
 
-    // État du service
-    if (s.serverSide !== undefined) this.serverSide = s.serverSide;
-    if (s.serving !== undefined) this.serving = s.serving;
-    
     // Message de service
     const isMyServe = this.serving && this.serverSide === this.mySide;
     if (isMyServe) {
