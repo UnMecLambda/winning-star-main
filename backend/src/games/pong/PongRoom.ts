@@ -42,11 +42,11 @@ export class PongRoom {
     this.io = io;
     this.gameId = gameId;
 
-    // bornes du court
+    // ✅ bornes du court (correctes, comme côté client)
     this.BOUNDS.left   = this.width/2 - this.courtW/2 + 10;
     this.BOUNDS.right  = this.width/2 + this.courtW/2 - 10;
-    this.BOUNDS.top    = (this.courtY + this.courtH/2) - this.courtH + 10;
-    this.BOUNDS.bottom = (this.courtY + this.courtH/2) - 10;
+    this.BOUNDS.top    = this.courtY + 10;
+    this.BOUNDS.bottom = this.courtY + this.courtH - 10;
 
     this.players = {
       bottom: {
@@ -62,11 +62,6 @@ export class PongRoom {
     pBottom.join(this.gameId);
     pTop.join(this.gameId);
 
-    const onInput = (payload: { gameId: string; input: PongInput }) => {
-      if (payload?.gameId !== this.gameId) return;
-      const who = (pBottom.id === (pBottom as any).id) ? 'bottom' : 'bottom'; // placeholder TS
-    };
-
     pBottom.on('game_input', (d:any)=> this.handleInput(pBottom, d?.input));
     pTop.on('game_input',    (d:any)=> this.handleInput(pTop, d?.input));
 
@@ -79,32 +74,26 @@ export class PongRoom {
     // état initial (balle chez le serveur)
     this.resetForServe();
     this.broadcastState();
-    
+
     console.log(`PongRoom created: ${gameId}`);
   }
 
   private tryStart(){
     if (this.players.bottom.ready && this.players.top.ready && !this.interval){
       console.log('Starting pong game:', this.gameId);
-      
-      // Start game loop at 60 FPS
-      this.interval = setInterval(()=> this.tick(), 1000/60);     // logique 60 fps
-      
-      // Send game started event first
+      this.interval = setInterval(()=> this.tick(), 1000/60);
       this.io.to(this.gameId).emit('game_started');
-      
-      // Then broadcast initial state
       this.broadcastState();
     }
   }
 
   private tick(){
-    // Always broadcast state, even when serving
+    // on émet l’état à 60 Hz
     this.broadcastState();
-    
+
     if (this.serving) return; // en attente de service
 
-    // Mouvement
+    // Mouvement (fixed-step)
     this.ball.x += this.ball.vx * (1/60);
     this.ball.y += this.ball.vy * (1/60);
 
@@ -119,32 +108,31 @@ export class PongRoom {
 
     // Sortie haut/bas => point
     if (this.ball.y < this.BOUNDS.top - 4) {
-      this.point('bottom');
-      return;
+      this.point('bottom'); return;
     }
     if (this.ball.y > this.BOUNDS.bottom + 4) {
-      this.point('top');
-      return;
+      this.point('top'); return;
     }
 
-    // Collisions “paddle” (zone près du joueur)
+    // Collisions Raquettes
     this.tryHit('bottom');
     this.tryHit('top');
   }
 
   private tryHit(side: PlayerSide){
     const p = this.players[side];
-    const towards = side === 'bottom' ? 1 : -1; // balle doit se déplacer vers le joueur
+    const towards = side === 'bottom' ? 1 : -1;
     if (towards === 1 && this.ball.vy <= 0) return;
     if (towards === -1 && this.ball.vy >= 0) return;
 
     const hitY = (side === 'bottom') ? (p.y - 28) : (p.y + 28);
     if (Math.abs(this.ball.y - hitY) > 18) return;
+
     const hitHalf = 28;
     const dx = this.ball.x - p.x;
     if (Math.abs(dx) > hitHalf) return;
 
-    // on a un hit
+    // hit !
     this.rally++;
     p.fury = Math.min(100, p.fury + 8);
 
@@ -163,17 +151,19 @@ export class PongRoom {
     this.ball.vx = vx;
     this.ball.vy = vy;
 
-    // éloigne légèrement la balle pour éviter double hit
+    // décaler pour éviter double hit
     this.ball.y += (side === 'bottom' ? -1 : 1) * 6;
   }
 
   private point(winner: PlayerSide){
     this.players[winner].score += 1;
-    // alternance service
+
+    // alterner le service
     this.serverSide = (this.serverSide === 'bottom') ? 'top' : 'bottom';
     this.players.bottom.fury = Math.max(0, this.players.bottom.fury - 25);
     this.players.top.fury    = Math.max(0, this.players.top.fury - 25);
     this.rally = 0;
+
     this.resetForServe();
     this.broadcastState();
   }
@@ -193,38 +183,30 @@ export class PongRoom {
 
   handleInput(sender: Socket, input?: PongInput){
     if (!input) return;
-    const side = sender.id === this.players.bottom.id ? 'bottom' : 'top';
+    const side: PlayerSide = sender.id === this.players.bottom.id ? 'bottom' : 'top';
     const p = this.players[side];
-    
-    console.log(`Input from ${side}:`, input.type, input.type === 'move' ? `x:${input.x} y:${input.y}` : '');
 
     if (input.type === 'move'){
-      // clamp aux bornes de sa moitié
+      // clamp aux bornes de SA MOITIÉ (haut ou bas)
       const x = Math.max(this.BOUNDS.left+40, Math.min(this.BOUNDS.right-40, input.x));
-      const minY = side === 'bottom' ? this.courtY + this.courtH/2 : this.BOUNDS.top;
-      const maxY = side === 'bottom' ? this.BOUNDS.bottom : this.courtY + this.courtH/2;
+      const midY = this.courtY + this.courtH/2;
+      const minY = side === 'bottom' ? midY : this.BOUNDS.top;
+      const maxY = side === 'bottom' ? this.BOUNDS.bottom : midY;
       const y = Math.max(minY, Math.min(maxY, input.y));
       p.x = x; p.y = y;
-      
-      // Broadcast immediately for smooth movement
+
       this.broadcastState();
     }
 
     if (input.type === 'serve' && this.serving && side === this.serverSide){
-      // service depuis le serveur courant
-      console.log(`${side} is serving!`);
       this.serving = false;
       const base = 420;
-      const angle = (side==='bottom')
-        ? this.randBetween(-50, -20)
-        : this.randBetween(20, 50);
+      const angle = (side==='bottom') ? this.randBetween(-50, -20) : this.randBetween(20, 50);
       const rad = (angle * Math.PI) / 180;
       const speed = base * (1 + p.fury * 0.002);
       this.ball.vx = Math.sin(rad) * speed;
       this.ball.vy = (side === 'bottom' ? -1 : 1) * Math.cos(rad) * speed;
-      
-      // Broadcast immediately after serve
-      console.log('Ball served, new velocity:', this.ball.vx, this.ball.vy);
+
       this.broadcastState();
     }
   }
@@ -244,12 +226,11 @@ export class PongRoom {
       rally: this.rally,
       ts: Date.now()
     };
-    console.log('Broadcasting state:', state.gameId, 'serving:', state.serving, 'serverSide:', state.serverSide);
     this.io.to(this.gameId).emit('pong_state', state);
   }
 
   end(reason: PlayerSide){
-    clearInterval(this.interval as NodeJS.Timeout);
+    if (this.interval) clearInterval(this.interval);
     this.io.to(this.gameId).emit('game_ended', { reason });
     this.io.in(this.gameId).socketsLeave(this.gameId);
   }

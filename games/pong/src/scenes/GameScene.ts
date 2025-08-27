@@ -45,7 +45,6 @@ export class GameScene extends Phaser.Scene {
   private mySide: PlayerSide = 'bottom';
   private serverSide: PlayerSide = 'bottom';
   private serving = true;
-  private viewFlipped = false;
 
   // Court bounds
   private courtBounds = {
@@ -67,33 +66,18 @@ export class GameScene extends Phaser.Scene {
       g.generateTexture('white', 2, 2);
       g.destroy();
     }
-    
+
     const params = new URLSearchParams(window.location.search);
-    console.log('URL search params:', window.location.search);
-    console.log('All params:', Array.from(params.entries()));
-    
-    // Check for practice mode (explicit training)
+
+    // Mode
     const practiceParam = params.get('practice');
     const isPracticeMode = practiceParam === 'true';
-    
-    // Use training mode if:
-    // 1. Explicitly requested practice mode
-    // 2. No valid token (fallback)
     const hasValidToken = this.token && this.token.length > 50;
     this.isTrainingMode = isPracticeMode || !hasValidToken;
-    
-    console.log('Mode detection:', {
-      practiceParam,
-      isPracticeMode,
-      hasValidToken,
-      isTrainingMode: this.isTrainingMode,
-      tokenLength: this.token?.length || 0
-    });
-    
-    // Always try to load starter racket for training mode
+
+    // Assets
     this.load.image('starter-racket', '/assets/rackets/starter-racket.png');
-    
-    // Load custom racket images from racket data
+
     const racketData = params.get('racket');
     if (racketData) {
       try {
@@ -108,8 +92,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(){
-    console.log('GameScene created, training mode:', this.isTrainingMode);
-    
     const w = this.scale.width, h = this.scale.height;
 
     const margin = 60;
@@ -117,7 +99,7 @@ export class GameScene extends Phaser.Scene {
     const courtH = h - 260;
     const courtY = 100;
 
-    // Set court bounds
+    // Set court bounds (identiques au serveur)
     this.courtBounds = {
       left: w/2 - courtW/2 + 10,
       right: w/2 + courtW/2 - 10,
@@ -127,9 +109,9 @@ export class GameScene extends Phaser.Scene {
 
     // Create court
     this.court = this.add.rectangle(w/2, courtY + courtH/2, courtW, courtH, 0x2b8a3e).setStrokeStyle(8, 0xffffff);
-    
+
     // Court lines
-    const line = (x:number,y:number,w:number,h:number)=>this.add.rectangle(x,y,w,h,0xffffff).setOrigin(0.5).setDepth(0);
+    const line = (x:number,y:number,w2:number,h2:number)=>this.add.rectangle(x,y,w2,h2,0xffffff).setOrigin(0.5).setDepth(0);
     line(this.court.x, this.court.y, courtW-40, 4);
     line(this.court.x, this.court.y + courtH/2, courtW-40, 4);
     line(this.court.x, this.court.y - courtH/2, courtW-40, 4);
@@ -143,45 +125,48 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(w/2+2, courtY + courtH/2+2, courtW, 2, 0x000000).setAlpha(.25).setDepth(1.9);
     }
 
-    // Players (circles) - always show me at bottom
+    // Players (circles) - me en bas côté vue
     this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
     this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
-    
-    // Ball - positioned for serving
+
+    // Ball
     this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
 
-    // Create rackets
+    // Rackets
     this.myRacket  = this.createRacketSprite(true,  this.myHandedness);
     this.oppRacket = this.createRacketSprite(false, this.oppHandedness);
 
-    // Position rackets initially
-    this.updateRacketPositions();
-
     // HUD
-    this.scoreText = this.add.text(w/2, 24, '0 : 0', { 
-      fontFamily: 'Arial', 
-      fontSize: '28px', 
-      color: '#fff' 
+    this.scoreText = this.add.text(w/2, 24, '0 : 0', {
+      fontFamily: 'Arial',
+      fontSize: '28px',
+      color: '#fff'
     }).setOrigin(0.5,0);
-    
+
     this.furyBar = this.add.rectangle(20, h/2, 14, 0, 0xffcc00).setOrigin(0.5,1);
 
-    // Setup input handlers
+    // Inputs + menu
     this.setupInputHandlers();
-
-    // Menu button
     this.createMenuButton();
 
-    // Setup game mode
-    console.log('Checking game mode - isTrainingMode:', this.isTrainingMode, 'token:', !!this.token);
-    
+    // Mode
     if (this.isTrainingMode || !this.token) {
-      console.log('Starting training mode immediately');
       this.startTrainingMode();
     } else {
-      console.log('Setting up multiplayer mode');
       this.setupMultiplayerMode();
     }
+  }
+
+  // --------- Helpers de transform : miroir vertical autour du court ---------
+  private mirrorY(y: number): number {
+    // miroir autour du centre du court (BOUNDS.top/bottom)
+    return this.courtBounds.top + this.courtBounds.bottom - y;
+  }
+  private viewToServer(x: number, y: number) {
+    return (this.mySide === 'top') ? { x, y: this.mirrorY(y) } : { x, y };
+  }
+  private serverToView(x: number, y: number) {
+    return (this.mySide === 'top') ? { x, y: this.mirrorY(y) } : { x, y };
   }
 
   private setupInputHandlers() {
@@ -190,93 +175,67 @@ export class GameScene extends Phaser.Scene {
       if (this.isTrainingMode) {
         this.handleTrainingInput(pointer);
       } else {
-        // In multiplayer, always move in bottom half visually
-        const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+        // En vue: déplacer dans la moitié basse
+        const minY = (this.courtBounds.top + this.courtBounds.bottom) / 2;
         const maxY = this.courtBounds.bottom - 40;
-        
+
         const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
         const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
-        
-        // Update my position immediately for smooth movement
+
+        // feedback local
         this.me.setPosition(clampedX, clampedY);
         this.updateRacketPositions();
-        
-        // Send to server (transform coordinates if I'm top player)
-        let serverX = clampedX;
-        let serverY = clampedY;
-        
-        if (this.mySide === 'top') {
-          // Transform visual bottom position to server top position
-          serverY = this.courtBounds.top + 40 + (this.courtBounds.bottom - 40 - clampedY);
-        }
-        
-        this.sendInput({ type:'move', x:serverX, y:serverY });
+
+        // envoyer au serveur (J2 -> miroir)
+        const s = this.viewToServer(clampedX, clampedY);
+        this.sendInput({ type:'move', x:s.x, y:s.y });
       }
     });
-    
+
     // Click/tap to serve
     this.input.on('pointerdown', () => {
       if (this.isTrainingMode) {
-        // En training mode, utiliser la logique locale
-        if (this.serving) {
-          console.log('Serving in training mode');
-          this.serveTrainingBall();
-        }
+        if (this.serving) this.serveTrainingBall();
       } else if (this.serving) {
-        console.log('Attempting to serve - mySide:', this.mySide, 'serverSide:', this.serverSide);
-        // Check if it's my turn to serve
         const canServe = this.mySide === this.serverSide;
-        console.log('Can serve:', canServe);
-        if (canServe) {
-          console.log('Sending serve input');
-          this.sendInput({ type:'serve' });
-        } else {
-          this.showToast('Wait for your turn to serve', 1000);
-        }
+        if (canServe) this.sendInput({ type:'serve' });
+        else this.showToast('Wait for your turn to serve', 1000);
       }
     });
   }
 
   private startTrainingMode() {
-    console.log('Training mode started');
-    this.showToast('🎾 Training Mode - Click to serve!', 4000);
-    
-    // Initialize training state
+    this.showToast('🎾 Training Mode - Click to serve!', 2000);
+
     this.mySide = 'bottom';
     this.serving = true;
     this.serverSide = 'bottom';
     this.scoreTop = 0;
     this.scoreBottom = 0;
-    
+
     // Position ball for serve
     this.resetTrainingBall();
-    
+
     // Start training loop
     this.trainingLoop = this.time.addEvent({
-      delay: 16, // ~60 FPS
+      delay: 16,
       callback: this.updateTraining,
       callbackScope: this,
       loop: true
     });
-    
-    console.log('Training loop started, serving:', this.serving);
   }
 
   private setupMultiplayerMode() {
-    console.log('Setting up multiplayer mode...');
     this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
-    console.log('My user ID:', this.myUserId);
-    
-    const backendUrl = (window as any).IBET_BACKEND_URL || 
-                      (new URLSearchParams(location.search).get('api') || 'http://localhost:3001');
-    console.log('Backend URL:', backendUrl);
-    
+
+    const backendUrl = (window as any).IBET_BACKEND_URL ||
+      (new URLSearchParams(location.search).get('api') || 'http://localhost:3001');
+
     if (this.token) {
       import('../network/GameSocket').then(({ GameSocket }) => {
-        console.log('Creating GameSocket...');
         this.socket = new GameSocket(backendUrl, this.token);
         this.bindSocket();
-        this.showToast('Searching for opponent...', 5000);
+        this.showToast('Searching for opponent...', 1500);
       });
     } else {
       this.showToast('Login required for multiplayer');
@@ -284,47 +243,44 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTrainingInput(pointer: Phaser.Input.Pointer) {
-    // In training mode, player is always at bottom
-    const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+    const minY = (this.courtBounds.top + this.courtBounds.bottom) / 2;
     const maxY = this.courtBounds.bottom - 40;
-    
+
     const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
-    
+
     this.me.setPosition(clampedX, clampedY);
     this.updateRacketPositions();
   }
 
   private serveTrainingBall() {
     if (!this.serving) return;
-    
-    console.log('Serving ball in training mode');
     this.serving = false;
-    
+
     // Random serve angle
     const angle = Phaser.Math.Between(-45, -20);
     const rad = Phaser.Math.DegToRad(angle);
-    
+
     this.ballVelocity.x = Math.sin(rad) * this.ballSpeed;
     this.ballVelocity.y = Math.cos(rad) * this.ballSpeed * -1;
   }
 
   private updateTraining() {
     if (this.serving) return;
-    
-    const deltaTime = 0.016; // 60 FPS
-    
+
+    const deltaTime = 0.016;
+
     // Move ball
     this.ball.x += this.ballVelocity.x * deltaTime;
     this.ball.y += this.ballVelocity.y * deltaTime;
-    
+
     // Bounce off sides
     if (this.ball.x <= this.courtBounds.left || this.ball.x >= this.courtBounds.right) {
       this.ballVelocity.x *= -1;
       this.ball.x = Phaser.Math.Clamp(this.ball.x, this.courtBounds.left, this.courtBounds.right);
     }
-    
-    // Check for scoring (ball goes out top or bottom)
+
+    // Scoring
     if (this.ball.y < this.courtBounds.top - 20) {
       this.scoreBottom++;
       this.resetTrainingBall();
@@ -334,8 +290,8 @@ export class GameScene extends Phaser.Scene {
       this.resetTrainingBall();
       this.showToast('Opponent scores! Click to serve');
     }
-    
-    // Simple AI for opponent
+
+    // Simple AI
     const oppTarget = this.ball.x;
     const oppSpeed = 200 * deltaTime;
     if (this.opp.x < oppTarget - 5) {
@@ -343,19 +299,18 @@ export class GameScene extends Phaser.Scene {
     } else if (this.opp.x > oppTarget + 5) {
       this.opp.x = Math.max(this.opp.x - oppSpeed, this.courtBounds.left + 40);
     }
-    
-    // Keep opponent in bounds
+
     const oppMinY = this.courtBounds.top + 40;
-    const oppMaxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2 - 40;
+    const oppMaxY = (this.courtBounds.top + this.courtBounds.bottom) / 2 - 40;
     this.opp.y = Phaser.Math.Clamp(this.opp.y, oppMinY, oppMaxY);
-    
-    // Check collisions
+
+    // Collisions
     this.checkTrainingCollisions();
-    
-    // Update score display
+
+    // UI
     this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-    
-    // Update racket positions
+
+    // Rackets
     this.updateRacketPositions();
   }
 
@@ -363,114 +318,100 @@ export class GameScene extends Phaser.Scene {
     const ballRadius = 10;
     const paddleWidth = 60;
     const paddleHeight = 20;
-    
-    // Check collision with player (bottom)
-    if (this.ballVelocity.y > 0 && 
+
+    if (this.ballVelocity.y > 0 &&
         Math.abs(this.ball.x - this.me.x) < paddleWidth/2 &&
         Math.abs(this.ball.y - this.me.y) < paddleHeight + ballRadius) {
-      
+
       const hitPos = (this.ball.x - this.me.x) / (paddleWidth/2);
-      const angle = hitPos * 45; // Max 45 degree angle
+      const angle = hitPos * 45;
       const rad = Phaser.Math.DegToRad(angle);
-      
+
       this.ballVelocity.x = Math.sin(rad) * this.ballSpeed;
       this.ballVelocity.y = Math.cos(rad) * this.ballSpeed * -1;
-      
+
       this.ball.y = this.me.y - paddleHeight - ballRadius;
     }
-    
-    // Check collision with opponent (top)
-    if (this.ballVelocity.y < 0 && 
+
+    if (this.ballVelocity.y < 0 &&
         Math.abs(this.ball.x - this.opp.x) < paddleWidth/2 &&
         Math.abs(this.ball.y - this.opp.y) < paddleHeight + ballRadius) {
-      
+
       const hitPos = (this.ball.x - this.opp.x) / (paddleWidth/2);
       const angle = hitPos * 45;
       const rad = Phaser.Math.DegToRad(angle);
-      
+
       this.ballVelocity.x = Math.sin(rad) * this.ballSpeed;
       this.ballVelocity.y = Math.cos(rad) * this.ballSpeed;
-      
+
       this.ball.y = this.opp.y + paddleHeight + ballRadius;
     }
   }
 
   private resetTrainingBall() {
     this.serving = true;
-    
-    // Reset player position to center of their side (always bottom)
+
     const centerX = this.scale.width / 2;
     const playerY = this.courtBounds.bottom - 40;
     const ballY = playerY - 40;
-    
+
     this.me.setPosition(centerX, playerY);
     this.ball.setPosition(centerX, ballY);
     this.ballVelocity.x = 0;
     this.ballVelocity.y = 0;
-    
-    // Update racket position
+
     this.updateRacketPositions();
   }
 
   private createRacketSprite(isMine: boolean, handed: Handed): Phaser.GameObjects.Image | Phaser.GameObjects.Container {
-    // Try to use PNG image first
     let key = '';
-    
-    if (isMine && this.textures.exists('racket_my')) {
-      key = 'racket_my';
-    } else if (this.textures.exists('starter-racket')) {
-      key = 'starter-racket';
-    }
+
+    if (isMine && this.textures.exists('racket_my')) key = 'racket_my';
+    else if (this.textures.exists('starter-racket')) key = 'starter-racket';
 
     if (key) {
       const img = this.add.image(0, 0, key);
-      img.setOrigin(0.5, 0.5); // Center the racket
-      img.setScale(0.15); // Smaller size
+      img.setOrigin(0.5, 0.5);
+      img.setScale(0.15);
       img.setDepth(3);
       return img;
     }
-    
-    // Fallback: create visual racket if no PNG
+
+    // Fallback visuel
     return this.createVisualRacket(handed);
   }
 
   private createVisualRacket(handed: Handed): Phaser.GameObjects.Container {
     const container = this.add.container(0, 0);
-    
-    // Racket head (oval) - smaller size
+
     const head = this.add.ellipse(0, -8, 16, 24, 0x8B4513);
     head.setStrokeStyle(2, 0x654321);
-    
-    // Handle - smaller size
+
     const handle = this.add.rectangle(0, 6, 4, 18, 0x654321);
-    
-    // Strings (vertical) - smaller size
+
     for (let i = -6; i <= 6; i += 3) {
       const string = this.add.line(0, -8, i, -18, i, 2, 0xFFFFFF);
       string.setLineWidth(1);
       container.add(string);
     }
-    
-    // Strings (horizontal) - smaller size
+
     for (let i = -16; i <= -2; i += 4) {
       const string = this.add.line(0, -8, -6, i, 6, i, 0xFFFFFF);
       string.setLineWidth(1);
       container.add(string);
     }
-    
-    // Grip tape - smaller size
+
     const grip = this.add.rectangle(0, 12, 5, 9, 0x333333);
-    
-    // Grip lines - smaller size
+
     for (let i = 0; i < 2; i++) {
       const gripLine = this.add.rectangle(0, 9 + i * 2, 6, 1, 0x555555);
       container.add(gripLine);
     }
-    
+
     container.add([head, handle, grip]);
-    container.setScale(0.6); // Smaller scale
+    container.setScale(0.6);
     container.setDepth(3);
-    
+
     return container;
   }
 
@@ -484,18 +425,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private positionRacket(
-    racket: Phaser.GameObjects.Image | Phaser.GameObjects.Container, 
-    px: number, 
-    py: number, 
-    side: PlayerSide, 
+    racket: Phaser.GameObjects.Image | Phaser.GameObjects.Container,
+    px: number,
+    py: number,
+    side: PlayerSide,
     handed: Handed
   ) {
-    // Position the racket close to the player
     const yOffset = side === 'bottom' ? -30 : +30;
     const xOffset = handed === 'right' ? +15 : -15;
     racket.setPosition(px + xOffset, py + yOffset);
-    
-    // Slight rotation based on side and handedness
+
     if (side === 'bottom') {
       racket.setRotation(handed === 'right' ? -0.2 : 0.2);
     } else {
@@ -508,46 +447,42 @@ export class GameScene extends Phaser.Scene {
     const menuBtn = this.add.rectangle(w - 60, 30, 100, 40, 0x333333)
       .setStrokeStyle(2, 0x666666)
       .setInteractive()
-      .on('pointerdown', () => { 
-        console.log('Menu button clicked');
+      .on('pointerdown', () => {
         window.location.href = window.location.origin + '/play';
       })
       .on('pointerover', () => menuBtn.setFillStyle(0x555555))
       .on('pointerout',  () => menuBtn.setFillStyle(0x333333));
-    
-    this.add.text(w - 60, 30, 'Home', { 
-      fontFamily: 'Arial', 
-      fontSize: '16px', 
-      color: '#fff' 
+
+    this.add.text(w - 60, 30, 'Home', {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: '#fff'
     }).setOrigin(0.5);
-    
-    // Add practice/multiplayer toggle buttons
+
     const trainingBtn = this.add.rectangle(w - 180, 30, 100, 40, 0x2d5a27)
       .setStrokeStyle(2, 0x4a7c59)
       .setInteractive()
       .on('pointerdown', () => {
-        console.log('Practice button clicked');
         window.location.href = '/pong?practice=true';
       })
       .on('pointerover', () => trainingBtn.setFillStyle(0x4a7c59))
       .on('pointerout', () => trainingBtn.setFillStyle(0x2d5a27));
-    
+
     this.add.text(w - 180, 30, 'Practice', {
       fontFamily: 'Arial',
       fontSize: '14px',
       color: '#fff'
     }).setOrigin(0.5);
-    
+
     const multiBtn = this.add.rectangle(w - 300, 30, 100, 40, 0x667eea)
       .setStrokeStyle(2, 0x764ba2)
       .setInteractive()
       .on('pointerdown', () => {
-        console.log('Multiplayer button clicked');
         window.location.href = '/pong';
       })
       .on('pointerover', () => multiBtn.setFillStyle(0x764ba2))
       .on('pointerout', () => multiBtn.setFillStyle(0x667eea));
-    
+
     this.add.text(w - 300, 30, 'Multiplayer', {
       fontFamily: 'Arial',
       fontSize: '14px',
@@ -558,33 +493,25 @@ export class GameScene extends Phaser.Scene {
   // Multiplayer socket methods
   private bindSocket(){
     if(!this.socket) return;
-    console.log('Binding socket events...');
-    
-    this.socket.onConnect(()=> console.log('[socket] connected'));
-    this.socket.onConnectError((e)=> console.warn('[socket] error', e));
+
+    this.socket.onConnect(()=> {});
+    this.socket.onConnectError(()=> {});
 
     this.socket.onMatchmakingStarted(()=> this.showToast('Matchmaking...'));
     this.socket.onMatchFound((m: Match)=>{
-      console.log('Match found, assigning sides:', m);
       this.assignSides(m);
-      this.showToast('Match found - Get ready!', 2000);
+      this.showToast('Match found - Get ready!', 1000);
       this.socket?.sendReady();
     });
 
-    // Server state updates
     (this.socket as any)['socket'].on('pong_state', (state:any)=> {
-      console.log('Received pong_state:', state);
       this.applyState(state);
     });
-    
-    // Game started event
+
     (this.socket as any)['socket'].on('game_started', ()=> {
-      console.log('Game started!');
-      this.showToast('Game started!', 1500);
+      this.showToast('Game started!', 800);
     });
-    
-    // Start matchmaking
-    console.log('Starting matchmaking...');
+
     this.socket.findMatch('pong');
   }
 
@@ -592,164 +519,87 @@ export class GameScene extends Phaser.Scene {
     const ids = match.players.map(p=>p.id).sort();
     const bottomId = ids[0];
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
-    console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
-    console.log('Bottom player ID:', bottomId, 'All IDs:', ids);
-    
-    // Apply view transformation immediately after side assignment
-    if (this.mySide === 'top') {
-      console.log('I am top player, applying view transformation');
-      // Delay the transformation slightly to ensure all objects are created
-      this.time.delayedCall(100, () => {
-        this.applyViewTransformation();
-      });
-    }
   }
 
-  private applyViewTransformation() {
-    console.log('Applying view transformation for top player');
-    
-    // Désactiver la transformation de vue pour simplifier
-    // Les coordonnées sont déjà gérées côté serveur
-    console.log('View transformation disabled for debugging');
-    
-    this.viewFlipped = true;
-  }
-
-
-  private transformCoordinatesForView(x: number, y: number): {x: number, y: number} {
-    if (this.viewFlipped) {
-      return {
-        x: this.scale.width - x,
-        y: this.scale.height - y
-      };
-    }
-    return {x, y};
-  }
-
-  private transformCoordinatesFromServer(serverX: number, serverY: number): {x: number, y: number} {
-    if (this.mySide === 'top') {
-      // Pour le joueur top, on inverse les coordonnées Y reçues du serveur
-      return {
-        x: serverX,
-        y: this.scale.height - serverY
-      };
-    }
-    return {x: serverX, y: serverY};
-  }
-
-  private transformCoordinatesForServer(clientX: number, clientY: number): {x: number, y: number} {
-    if (this.mySide === 'top') {
-      // Pour le joueur top, on inverse les coordonnées Y avant envoi au serveur
-      return {
-        x: clientX,
-        y: this.scale.height - clientY
-      };
-    }
-    return {x: clientX, y: clientY};
+  // Lerp pour lisser l'affichage et éviter les téléports
+  private smoothTo(obj: Phaser.GameObjects.Arc, x:number, y:number, a=0.35){
+    obj.x = Phaser.Math.Linear(obj.x, x, a);
+    obj.y = Phaser.Math.Linear(obj.y, y, a);
   }
 
   private applyState(s: any){
-    if (!s || !s.players) {
-      console.warn('Invalid state received:', s);
-      return;
-    }
-    
-    console.log('Applying state - mySide:', this.mySide, 'serverSide:', s.serverSide, 'serving:', s.serving, 'ball:', s.ball);
-    
-    // Update serving state first
-    if (s.serverSide !== undefined) this.serverSide = s.serverSide;
-    if (s.serving !== undefined) this.serving = s.serving;
-    
-    // Always show me at bottom, opponent at top (visual consistency)
+    if (!s || !s.players) return;
+
+    if (s.serverSide === 'bottom' || s.serverSide === 'top') this.serverSide = s.serverSide;
+    if (typeof s.serving === 'boolean') this.serving = s.serving;
+
     if (this.mySide === 'bottom') {
-      // I am bottom player
-      if (s.players.bottom) {
-        this.me.setPosition(s.players.bottom.x, s.players.bottom.y);
-      }
-      if (s.players.top) {
-        this.opp.setPosition(s.players.top.x, s.players.top.y);
-      }
+      if (s.players.bottom) this.smoothTo(this.me,  s.players.bottom.x, s.players.bottom.y);
+      if (s.players.top)    this.smoothTo(this.opp, s.players.top.x,    s.players.top.y);
+      if (s.ball) this.ball.setPosition(s.ball.x, s.ball.y);
       this.scoreBottom = s.players.bottom?.score || 0;
-      this.scoreTop = s.players.top?.score || 0;
+      this.scoreTop    = s.players.top?.score || 0;
     } else {
-      // I am top player - show me at bottom visually
+      // Je suis TOP → miroir pour la vue locale
       if (s.players.top) {
-        // My position shown at bottom
-        this.me.setPosition(s.players.top.x, this.courtBounds.bottom - 40);
+        const v = this.serverToView(s.players.top.x, s.players.top.y);
+        this.smoothTo(this.me, v.x, v.y);
       }
       if (s.players.bottom) {
-        // Opponent position shown at top
-        this.opp.setPosition(s.players.bottom.x, this.courtBounds.top + 40);
+        const v = this.serverToView(s.players.bottom.x, s.players.bottom.y);
+        this.smoothTo(this.opp, v.x, v.y);
       }
-      // Swap scores for visual consistency
+      if (s.ball) {
+        const vb = this.serverToView(s.ball.x, s.ball.y);
+        this.ball.setPosition(vb.x, vb.y);
+      }
       this.scoreBottom = s.players.top?.score || 0;
-      this.scoreTop = s.players.bottom?.score || 0;
+      this.scoreTop    = s.players.bottom?.score || 0;
     }
-    
-    // Ball position
-    if (s.ball) {
-      this.ball.setPosition(s.ball.x, s.ball.y);
-    }
-    
-    // Mise à jour du score
+
     this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-    
-    // Fury bar
-    const myPlayerData = this.mySide === 'bottom' ? s.players.bottom : s.players.top;
-    if (myPlayerData && typeof myPlayerData.fury === 'number') {
-      const fury = myPlayerData.fury;
+    this.updateRacketPositions();
+
+    const myData = this.mySide === 'bottom' ? s.players.bottom : s.players.top;
+    if (myData && typeof myData.fury === 'number') {
+      const fury = myData.fury;
       const h = Phaser.Math.Linear(0, 300, Phaser.Math.Clamp(fury,0,100)/100);
       this.furyBar.setSize(14, h);
       this.furyBar.setY(this.scale.height/2 + h/2);
     }
 
-    // Message de service
-    const isMyServe = this.serving && this.serverSide === this.mySide;
-    if (isMyServe) {
-      this.showToast('Your serve - Click to serve!', 2000);
-    } else if (this.serving) {
-      this.showToast('Opponent is serving...', 2000);
+    if (this.serving && this.serverSide === this.mySide) {
+      this.showToast('Your serve - Click to serve!', 900);
     }
-    
-    // Mise à jour des raquettes
-    this.updateRacketPositions();
   }
 
   private sendInput(input: any) {
-    if (!this.socket || this.isTrainingMode) {
-      console.log('Not sending input - no socket or training mode');
-      return;
-    }
-    console.log('Sending input:', input);
-    
-    // Envoyer directement sans transformation pour le moment
+    if (!this.socket || this.isTrainingMode) return;
     this.socket.sendInput(input);
   }
 
   private toast?: Phaser.GameObjects.Text;
   private showToast(msg:string, duration: number = 2000){
     if(this.toast) this.toast.destroy();
-    this.toast = this.add.text(this.scale.width/2, 60, msg, { 
-      fontFamily:'Arial', 
-      fontSize:'20px', 
-      color:'#fff', 
-      backgroundColor:'#0008', 
+    this.toast = this.add.text(this.scale.width/2, 60, msg, {
+      fontFamily:'Arial',
+      fontSize:'20px',
+      color:'#fff',
+      backgroundColor:'#0008',
       padding:{x:10,y:6}
     }).setOrigin(0.5);
-    
-    this.tweens.add({ 
-      targets:this.toast, 
-      alpha:0, 
-      duration:Math.max(800, duration * 0.4), 
-      delay:Math.max(400, duration * 0.6), 
-      onComplete: ()=> this.toast?.destroy() 
+
+    this.tweens.add({
+      targets:this.toast,
+      alpha:0,
+      duration:Math.max(800, duration * 0.4),
+      delay:Math.max(400, duration * 0.6),
+      onComplete: ()=> this.toast?.destroy()
     });
   }
 
   destroy() {
-    if (this.trainingLoop) {
-      this.trainingLoop.destroy();
-    }
+    if (this.trainingLoop) this.trainingLoop.destroy();
     super.destroy();
   }
 }
