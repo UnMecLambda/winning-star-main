@@ -86,15 +86,17 @@ export class PongRoom {
   private tryStart(){
     if (this.players.bottom.ready && this.players.top.ready && !this.interval){
       console.log('Starting pong game:', this.gameId);
-      this.io.to(this.gameId).emit('game_started');
       
       // Start game loop immediately
       this.interval = setInterval(()=> this.tick(), 1000/60);     // logique 60 fps
       
-      // Broadcast initial state immediately
+      // Send game started event first
+      this.io.to(this.gameId).emit('game_started');
+      
+      // Then broadcast initial state
       this.broadcastState();
       
-      // Then broadcast at 20 Hz
+      // Continue broadcasting at 20 Hz
       setInterval(()=> this.broadcastState(), 50);
     }
   }

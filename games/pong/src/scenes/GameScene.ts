@@ -222,15 +222,35 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTrainingInput(pointer: Phaser.Input.Pointer) {
-    // Clamp to player's half of court (always bottom half for training)
-    const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-    const maxY = this.courtBounds.bottom - 40;
+    // In training, always move in bottom half
+    let minY, maxY;
+    if (this.mySide === 'bottom' || this.isTrainingMode) {
+      minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+      maxY = this.courtBounds.bottom - 40;
+    } else {
+      // Top player sees flipped view
+      minY = this.courtBounds.top + 40;
+      maxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+    }
     
     const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
     
     this.me.setPosition(clampedX, clampedY);
     this.updateRacketPositions();
+    
+    // Send input to server if in multiplayer
+    if (!this.isTrainingMode) {
+      // Transform coordinates back to server space if I'm top player
+      let serverX = clampedX;
+      let serverY = clampedY;
+      
+      if (this.mySide === 'top') {
+        serverY = this.scale.height - clampedY;
+      }
+      
+      this.sendInput({ type: 'move', x: serverX, y: serverY });
+    }
   }
 
   private serveTrainingBall() {
@@ -487,10 +507,40 @@ export class GameScene extends Phaser.Scene {
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
     console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
     
-    // If I'm the top player, I need to see myself at the bottom
+    // If I'm the top player, I need to flip the entire view
     if (this.mySide === 'top') {
-      console.log('I am top player, will flip view');
+      console.log('I am top player, flipping view so I see myself at bottom');
+      this.flipViewForTopPlayer();
     }
+  }
+
+  private flipViewForTopPlayer() {
+    // Flip all visual elements so top player sees themselves at bottom
+    const w = this.scale.width;
+    const h = this.scale.height;
+    
+    // Flip the entire court container
+    this.court.setRotation(Math.PI);
+    this.netLine.setRotation(Math.PI);
+    
+    // Flip all court lines
+    this.children.list.forEach(child => {
+      if (child instanceof Phaser.GameObjects.Rectangle && child !== this.court && child !== this.furyBar) {
+        child.setRotation(Math.PI);
+      }
+    });
+    
+    // Swap player positions visually (me becomes bottom, opp becomes top)
+    const tempY = this.me.y;
+    this.me.y = this.opp.y;
+    this.opp.y = tempY;
+    
+    // Flip rackets
+    this.myRacket.setRotation(Math.PI);
+    this.oppRacket.setRotation(Math.PI);
+    
+    // Flip ball position for serving
+    this.ball.y = h - this.ball.y;
   }
 
   private applyState(s: any){
@@ -499,32 +549,56 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     
-    // Transform coordinates based on my view
-    const transformY = (y: number) => {
-      if (this.mySide === 'top') {
-        // Flip Y coordinate for top player so they see themselves at bottom
-        const courtCenter = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-        return courtCenter + (courtCenter - y);
+    // For top player, we need to transform coordinates
+    if (this.mySide === 'top') {
+      // I'm the top player, but I see myself as bottom
+      if (s.players.top) {
+        // My actual data from server (I'm top player)
+        const myData = s.players.top;
+        // Transform to bottom view
+        const flippedY = this.scale.height - myData.y;
+        this.me.setPosition(myData.x, flippedY);
       }
-      return y;
-    };
-    
-    // Update my position (I always see myself as bottom)
-    if (s.players[this.mySide]) {
-      const myData = s.players[this.mySide];
-      this.me.setPosition(myData.x, transformY(myData.y));
-    }
-    
-    // Update opponent position (I always see opponent as top)
-    const oppSide: PlayerSide = this.mySide === 'bottom' ? 'top' : 'bottom';
-    if (s.players[oppSide]) {
-      const oppData = s.players[oppSide];
-      this.opp.setPosition(oppData.x, transformY(oppData.y));
-    }
-
-    // Update ball position
-    if (s.ball) {
-      this.ball.setPosition(s.ball.x, transformY(s.ball.y));
+      
+      if (s.players.bottom) {
+        // Opponent data (they're bottom player)
+        const oppData = s.players.bottom;
+        // Transform to top view for me
+        const flippedY = this.scale.height - oppData.y;
+        this.opp.setPosition(oppData.x, flippedY);
+      }
+      
+      // Transform ball position
+      if (s.ball) {
+        const flippedBallY = this.scale.height - s.ball.y;
+        this.ball.setPosition(s.ball.x, flippedBallY);
+      }
+      
+      // Flip score display (I see my score on right)
+      this.scoreTop = s.players.bottom?.score || 0;
+      this.scoreBottom = s.players.top?.score || 0;
+      this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+      
+    } else {
+      // I'm the bottom player, normal view
+      if (s.players.bottom) {
+        const myData = s.players.bottom;
+        this.me.setPosition(myData.x, myData.y);
+      }
+      
+      if (s.players.top) {
+        const oppData = s.players.top;
+        this.opp.setPosition(oppData.x, oppData.y);
+      }
+      
+      if (s.ball) {
+        this.ball.setPosition(s.ball.x, s.ball.y);
+      }
+      
+      // Normal score display
+      this.scoreTop = s.players.top?.score || 0;
+      this.scoreBottom = s.players.bottom?.score || 0;
+      this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
     }
 
     // Update fury bar
@@ -535,25 +609,18 @@ export class GameScene extends Phaser.Scene {
       this.furyBar.setY(this.scale.height/2 + h/2);
     }
 
-    // Update score (flip for top player view)
-    if (s.players.top && s.players.bottom) {
-      if (this.mySide === 'bottom') {
-        this.scoreTop = s.players.top.score;
-        this.scoreBottom = s.players.bottom.score;
-        this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-      } else {
-        // Flip score display for top player (I see my score on the right)
-        this.scoreTop = s.players.bottom.score;
-        this.scoreBottom = s.players.top.score;
-        this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-      }
-    }
-
     if (s.serverSide !== undefined) this.serverSide = s.serverSide;
     if (s.serving !== undefined) this.serving = s.serving;
     
-    // Show serving info
-    const isMyServe = this.serving && this.serverSide === this.mySide;
+    // Show serving info (adjust for flipped view)
+    let isMyServe;
+    if (this.mySide === 'top') {
+      // I'm top player but see myself as bottom, so flip server logic
+      isMyServe = this.serving && ((this.serverSide === 'top' && this.mySide === 'top') || (this.serverSide === 'bottom' && this.mySide === 'top'));
+    } else {
+      isMyServe = this.serving && this.serverSide === this.mySide;
+    }
+    
     if (isMyServe) {
       this.showToast('Your serve - Click to serve!', 1000);
     }
