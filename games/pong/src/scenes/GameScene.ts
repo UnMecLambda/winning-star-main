@@ -158,8 +158,6 @@ export class GameScene extends Phaser.Scene {
       this.startTrainingMode();
     } else {
       // En multijoueur, on attend l'assignation des côtés
-      this.setupMultiplayerMode();
-      this.showToast('Searching for opponent...', 5000);
     }
 
     // Menu button
