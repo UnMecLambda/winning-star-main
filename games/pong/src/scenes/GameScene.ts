@@ -45,6 +45,7 @@ export class GameScene extends Phaser.Scene {
   private mySide: PlayerSide = 'bottom';
   private serverSide: PlayerSide = 'bottom';
   private serving = true;
+  private viewFlipped = false;
 
   // Court bounds
   private courtBounds = {
@@ -156,6 +157,10 @@ export class GameScene extends Phaser.Scene {
       console.log('Starting training mode immediately');
       this.startTrainingMode();
     } else {
+      // En multijoueur, on attend l'assignation des côtés
+      this.setupMultiplayerMode();
+      this.showToast('Searching for opponent...', 5000);
+    } else {
       this.setupMultiplayerMode();
     }
 
@@ -206,7 +211,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private setupMultiplayerMode() {
     this.myUserId = decodeJwt(this.token || '')?.userId || undefined;
     const backendUrl = (window as any).IBET_BACKEND_URL || 
                       (new URLSearchParams(location.search).get('api') || 'http://localhost:3001');
@@ -225,6 +229,7 @@ export class GameScene extends Phaser.Scene {
     // In training, always move in bottom half
     let minY, maxY;
     if (this.mySide === 'bottom' || this.isTrainingMode) {
+      // Je suis en bas (ou training) - je bouge dans la moitié basse
       minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
       maxY = this.courtBounds.bottom - 40;
     } else {
@@ -239,15 +244,9 @@ export class GameScene extends Phaser.Scene {
     this.me.setPosition(clampedX, clampedY);
     this.updateRacketPositions();
     
-    // Send input to server if in multiplayer
-    if (!this.isTrainingMode) {
-      // Transform coordinates back to server space if I'm top player
-      let serverX = clampedX;
-      let serverY = clampedY;
-      
-      if (this.mySide === 'top') {
-        serverY = this.scale.height - clampedY;
-      }
+    // Send input to server if in multiplayer (coordinates are already in client space)
+    if (!this.isTrainingMode && this.socket) {
+      this.sendInput({ type: 'move', x: clampedX, y: clampedY });
       
       this.sendInput({ type: 'move', x: serverX, y: serverY });
     }
@@ -484,6 +483,7 @@ export class GameScene extends Phaser.Scene {
     this.socket.onMatchFound((m: Match)=>{
       console.log('Match found, assigning sides:', m);
       this.assignSides(m);
+      this.applyViewTransformation();
       this.showToast('Match found - Get ready!', 2000);
       this.socket?.sendReady();
     });
@@ -506,41 +506,69 @@ export class GameScene extends Phaser.Scene {
     const bottomId = ids[0];
     this.mySide = (this.myUserId === bottomId) ? 'bottom' : 'top';
     console.log('My side assigned:', this.mySide, 'My ID:', this.myUserId);
-    
-    // If I'm the top player, I need to flip the entire view
+  }
+
+  private applyViewTransformation() {
     if (this.mySide === 'top') {
       console.log('I am top player, flipping view so I see myself at bottom');
       this.flipViewForTopPlayer();
+      this.viewFlipped = true;
     }
   }
 
   private flipViewForTopPlayer() {
-    // Flip all visual elements so top player sees themselves at bottom
-    const w = this.scale.width;
-    const h = this.scale.height;
+    // Inverser visuellement tout le terrain
+    const container = this.add.container(this.scale.width/2, this.scale.height/2);
     
-    // Flip the entire court container
-    this.court.setRotation(Math.PI);
-    this.netLine.setRotation(Math.PI);
+    // Ajouter tous les éléments visuels au container
+    container.add([
+      this.court,
+      this.netLine,
+      this.ball,
+      this.me,
+      this.opp,
+      this.myRacket,
+      this.oppRacket
+    ]);
     
-    // Flip all court lines
-    this.children.list.forEach(child => {
-      if (child instanceof Phaser.GameObjects.Rectangle && child !== this.court && child !== this.furyBar) {
-        child.setRotation(Math.PI);
-      }
-    });
+    // Rotation de 180 degrés
+    container.setRotation(Math.PI);
     
-    // Swap player positions visually (me becomes bottom, opp becomes top)
-    const tempY = this.me.y;
-    this.me.y = this.opp.y;
-    this.opp.y = tempY;
-    
-    // Flip rackets
-    this.myRacket.setRotation(Math.PI);
-    this.oppRacket.setRotation(Math.PI);
-    
-    // Flip ball position for serving
-    this.ball.y = h - this.ball.y;
+    // Garder le HUD normal (score, etc.)
+    this.scoreText.setDepth(1000);
+    this.furyBar.setDepth(1000);
+  }
+
+  private transformCoordinatesForView(x: number, y: number): {x: number, y: number} {
+    if (this.viewFlipped) {
+      return {
+        x: this.scale.width - x,
+        y: this.scale.height - y
+      };
+    }
+    return {x, y};
+  }
+
+  private transformCoordinatesFromServer(serverX: number, serverY: number): {x: number, y: number} {
+    if (this.mySide === 'top') {
+      // Pour le joueur top, on inverse les coordonnées Y reçues du serveur
+      return {
+        x: serverX,
+        y: this.scale.height - serverY
+      };
+    }
+    return {x: serverX, y: serverY};
+  }
+
+  private transformCoordinatesForServer(clientX: number, clientY: number): {x: number, y: number} {
+    if (this.mySide === 'top') {
+      // Pour le joueur top, on inverse les coordonnées Y avant envoi au serveur
+      return {
+        x: clientX,
+        y: this.scale.height - clientY
+      };
+    }
+    return {x: clientX, y: clientY};
   }
 
   private applyState(s: any){
@@ -549,88 +577,82 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     
-    // For top player, we need to transform coordinates
-    if (this.mySide === 'top') {
-      // I'm the top player, but I see myself as bottom
-      if (s.players.top) {
-        // My actual data from server (I'm top player)
-        const myData = s.players.top;
-        // Transform to bottom view
-        const flippedY = this.scale.height - myData.y;
-        this.me.setPosition(myData.x, flippedY);
-      }
-      
+    console.log('Applying state for side:', this.mySide, 'viewFlipped:', this.viewFlipped);
+    
+    // Appliquer les positions des joueurs
+    if (this.mySide === 'bottom') {
+      // Je suis le joueur bottom
       if (s.players.bottom) {
-        // Opponent data (they're bottom player)
-        const oppData = s.players.bottom;
-        // Transform to top view for me
-        const flippedY = this.scale.height - oppData.y;
-        this.opp.setPosition(oppData.x, flippedY);
+        this.me.setPosition(s.players.bottom.x, s.players.bottom.y);
       }
-      
-      // Transform ball position
-      if (s.ball) {
-        const flippedBallY = this.scale.height - s.ball.y;
-        this.ball.setPosition(s.ball.x, flippedBallY);
+      if (s.players.top) {
+        this.opp.setPosition(s.players.top.x, s.players.top.y);
       }
-      
-      // Flip score display (I see my score on right)
-      this.scoreTop = s.players.bottom?.score || 0;
-      this.scoreBottom = s.players.top?.score || 0;
-      this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-      
+      this.scoreBottom = s.players.bottom?.score || 0;
+      this.scoreTop = s.players.top?.score || 0;
     } else {
-      // I'm the bottom player, normal view
-      if (s.players.bottom) {
-        const myData = s.players.bottom;
-        this.me.setPosition(myData.x, myData.y);
-      }
-      
+      // Je suis le joueur top - j'inverse ma vue
       if (s.players.top) {
-        const oppData = s.players.top;
-        this.opp.setPosition(oppData.x, oppData.y);
+        // Ma position (je me vois en bas)
+        const myPos = this.transformCoordinatesFromServer(s.players.top.x, s.players.top.y);
+        this.me.setPosition(myPos.x, myPos.y);
       }
-      
-      if (s.ball) {
+      if (s.players.bottom) {
+        // Position de l'adversaire (je le vois en haut)
+        const oppPos = this.transformCoordinatesFromServer(s.players.bottom.x, s.players.bottom.y);
+        this.opp.setPosition(oppPos.x, oppPos.y);
+      }
+      // Score inversé pour moi
+      this.scoreBottom = s.players.top?.score || 0;
+      this.scoreTop = s.players.bottom?.score || 0;
+    }
+    
+    // Position de la balle
+    if (s.ball) {
+      if (this.mySide === 'top') {
+        const ballPos = this.transformCoordinatesFromServer(s.ball.x, s.ball.y);
+        this.ball.setPosition(ballPos.x, ballPos.y);
+      } else {
         this.ball.setPosition(s.ball.x, s.ball.y);
       }
-      
-      // Normal score display
-      this.scoreTop = s.players.top?.score || 0;
-      this.scoreBottom = s.players.bottom?.score || 0;
-      this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
     }
-
-    // Update fury bar
-    if (s.players[this.mySide] && typeof s.players[this.mySide].fury === 'number') {
-      const fury = s.players[this.mySide].fury;
+    
+    // Mise à jour du score
+    this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+    
+    // Fury bar
+    const myPlayerData = this.mySide === 'bottom' ? s.players.bottom : s.players.top;
+    if (myPlayerData && typeof myPlayerData.fury === 'number') {
+      const fury = myPlayerData.fury;
       const h = Phaser.Math.Linear(0, 300, Phaser.Math.Clamp(fury,0,100)/100);
       this.furyBar.setSize(14, h);
       this.furyBar.setY(this.scale.height/2 + h/2);
     }
 
+    // État du service
     if (s.serverSide !== undefined) this.serverSide = s.serverSide;
     if (s.serving !== undefined) this.serving = s.serving;
     
-    // Show serving info (adjust for flipped view)
-    let isMyServe;
-    if (this.mySide === 'top') {
-      // I'm top player but see myself as bottom, so flip server logic
-      isMyServe = this.serving && ((this.serverSide === 'top' && this.mySide === 'top') || (this.serverSide === 'bottom' && this.mySide === 'top'));
-    } else {
-      isMyServe = this.serving && this.serverSide === this.mySide;
-    }
-    
+    // Message de service
+    const isMyServe = this.serving && this.serverSide === this.mySide;
     if (isMyServe) {
       this.showToast('Your serve - Click to serve!', 1000);
     }
-
-    // Update racket positions
+    
+    // Mise à jour des raquettes
     this.updateRacketPositions();
   }
 
-  private sendInput(input: any){ 
-    this.socket?.sendInput(input); 
+  private sendInput(input: any) {
+    if (!this.socket) return;
+    
+    // Transformer les coordonnées si nécessaire
+    if (input.type === 'move') {
+      const serverCoords = this.transformCoordinatesForServer(input.x, input.y);
+      this.socket.sendInput({ type: 'move', x: serverCoords.x, y: serverCoords.y });
+    } else {
+      this.socket.sendInput(input);
+    }
   }
 
   private toast?: Phaser.GameObjects.Text;
