@@ -70,12 +70,12 @@ export class GameScene extends Phaser.Scene {
     
     const params = new URLSearchParams(location.search);
     
-    // Force training mode by default unless explicitly requesting multiplayer
-    const forceMultiplayer = params.get('multiplayer') === 'true';
+    // Check for multiplayer mode
+    const forceMultiplayer = params.has('multiplayer') && params.get('multiplayer') === 'true';
     const hasValidToken = this.token && this.token.length > 50; // Token must be substantial
     
-    // Only use multiplayer if explicitly requested AND has valid token
-    this.isTrainingMode = !forceMultiplayer || !hasValidToken;
+    // Use multiplayer if explicitly requested AND has valid token
+    this.isTrainingMode = !(forceMultiplayer && hasValidToken);
     
     console.log('Training mode check:', {
       forceMultiplayer,
