@@ -215,7 +215,11 @@ export class GameScene extends Phaser.Scene {
     // Click/tap to serve
     this.input.on('pointerdown', () => {
       if (this.isTrainingMode) {
-        this.serveTrainingBall();
+        // En training mode, utiliser la logique locale
+        if (this.serving) {
+          console.log('Serving in training mode');
+          this.serveTrainingBall();
+        }
       } else if (this.serving) {
         console.log('Attempting to serve - mySide:', this.mySide, 'serverSide:', this.serverSide);
         // Check if it's my turn to serve
@@ -227,8 +231,6 @@ export class GameScene extends Phaser.Scene {
         } else {
           this.showToast('Wait for your turn to serve', 1000);
         }
-      } else {
-        this.sendInput({ type:'serve' });
       }
     });
   }
@@ -472,10 +474,14 @@ export class GameScene extends Phaser.Scene {
 
   private updateRacketPositions() {
     if (this.myRacket) {
-      this.positionRacket(this.myRacket, this.me.x, this.me.y, 'bottom', this.myHandedness);
+      // En training, toujours bottom. En multi, selon mySide
+      const mySideForRacket = this.isTrainingMode ? 'bottom' : this.mySide;
+      this.positionRacket(this.myRacket, this.me.x, this.me.y, mySideForRacket, this.myHandedness);
     }
     if (this.oppRacket) {
-      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, 'top', this.oppHandedness);
+      // En training, toujours top. En multi, côté opposé
+      const oppSideForRacket = this.isTrainingMode ? 'top' : (this.mySide === 'bottom' ? 'top' : 'bottom');
+      this.positionRacket(this.oppRacket, this.opp.x, this.opp.y, oppSideForRacket, this.oppHandedness);
     }
   }
 
@@ -486,16 +492,16 @@ export class GameScene extends Phaser.Scene {
     side: PlayerSide, 
     handed: Handed
   ) {
-    // Adjust offset based on side - fix positioning
-    const yOffset = side === 'bottom' ? -25 : +25;
-    const xOffset = handed === 'right' ? +10 : -10;
+    // Offset plus petit pour les raquettes
+    const yOffset = side === 'bottom' ? -20 : +20;
+    const xOffset = handed === 'right' ? +8 : -8;
     racket.setPosition(px + xOffset, py + yOffset);
     
-    // Ensure racket is visible and properly oriented
+    // Rotation légère selon le côté et la main
     if (side === 'bottom') {
-      racket.setRotation(handed === 'right' ? -0.2 : 0.2);
+      racket.setRotation(handed === 'right' ? -0.1 : 0.1);
     } else {
-      racket.setRotation(handed === 'right' ? 0.2 : -0.2);
+      racket.setRotation(handed === 'right' ? 0.1 : -0.1);
     }
   }
 
@@ -604,36 +610,11 @@ export class GameScene extends Phaser.Scene {
   private applyViewTransformation() {
     console.log('Applying view transformation for top player');
     
-    // Create a container for all game elements
-    const gameContainer = this.add.container(this.scale.width/2, this.scale.height/2);
-    gameContainer.setName('gameContainer');
-    
-    // Move all game elements to the container
-    const elementsToFlip = [this.court, this.netLine, this.ball, this.me, this.opp];
-    if (this.myRacket) elementsToFlip.push(this.myRacket);
-    if (this.oppRacket) elementsToFlip.push(this.oppRacket);
-    
-    elementsToFlip.forEach(element => {
-      if (element) {
-        // Store original position relative to center
-        const relativeX = element.x - this.scale.width/2;
-        const relativeY = element.y - this.scale.height/2;
-        
-        // Add to container with relative position
-        gameContainer.add(element);
-        element.setPosition(relativeX, relativeY);
-      }
-    });
-    
-    // Rotate 180 degrees
-    gameContainer.setRotation(Math.PI);
-    
-    // Keep HUD elements normal (outside container)
-    this.scoreText.setDepth(1000);
-    this.furyBar.setDepth(1000);
+    // Désactiver la transformation de vue pour simplifier
+    // Les coordonnées sont déjà gérées côté serveur
+    console.log('View transformation disabled for debugging');
     
     this.viewFlipped = true;
-    console.log('View flipped successfully');
   }
 
 
@@ -744,16 +725,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private sendInput(input: any) {
-    if (!this.socket) return;
+    if (!this.socket || this.isTrainingMode) {
+      console.log('Not sending input - no socket or training mode');
+      return;
+    }
     console.log('Sending input:', input);
     
-    // Transformer les coordonnées si nécessaire
-    if (input.type === 'move') {
-      const serverCoords = this.transformCoordinatesForServer(input.x, input.y);
-      this.socket.sendInput({ type: 'move', x: serverCoords.x, y: serverCoords.y });
-    } else {
-      this.socket.sendInput(input);
-    }
+    // Envoyer directement sans transformation pour le moment
+    this.socket.sendInput(input);
   }
 
   private toast?: Phaser.GameObjects.Text;
