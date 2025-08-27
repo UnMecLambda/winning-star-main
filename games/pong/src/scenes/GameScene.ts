@@ -486,13 +486,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMenuButton() {
-    console.log('Creating menu button');
     const w = this.scale.width;
     const menuBtn = this.add.rectangle(w - 60, 30, 100, 40, 0x333333)
       .setStrokeStyle(2, 0x666666)
       .setInteractive()
       .on('pointerdown', () => { 
-        console.log('Menu button clicked');
         window.location.href = window.location.origin + '/play'; 
       })
       .on('pointerover', () => menuBtn.setFillStyle(0x555555))
@@ -609,7 +607,7 @@ export class GameScene extends Phaser.Scene {
         y: this.scale.height - serverY
       };
     }
-    return {x: y: serverY};
+    return {x: serverX, y: serverY};
   }
 
   private transformCoordinatesForServer(clientX: number, clientY: number): {x: number, y: number} {
