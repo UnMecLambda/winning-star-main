@@ -68,11 +68,17 @@ export class GameScene extends Phaser.Scene {
       g.destroy();
     }
     
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
+    console.log('URL search params:', window.location.search);
+    console.log('All params:', Array.from(params.entries()));
     
     // Check for multiplayer mode
-    const forceMultiplayer = params.has('multiplayer') && params.get('multiplayer') === 'true';
+    const multiplayerParam = params.get('multiplayer');
+    const forceMultiplayer = multiplayerParam === 'true';
     const hasValidToken = this.token && this.token.length > 50; // Token must be substantial
+    
+    console.log('Multiplayer param value:', multiplayerParam);
+    console.log('Force multiplayer:', forceMultiplayer);
     
     // Use multiplayer if explicitly requested AND has valid token
     this.isTrainingMode = !(forceMultiplayer && hasValidToken);
@@ -508,9 +514,7 @@ export class GameScene extends Phaser.Scene {
       .setInteractive()
       .on('pointerdown', () => {
         console.log('Training button clicked');
-        const url = new URL(window.location.href);
-        url.searchParams.delete('multiplayer');
-        window.location.href = url.toString();
+        window.location.href = '/pong';
       })
       .on('pointerover', () => trainingBtn.setFillStyle(0x4a7c59))
       .on('pointerout', () => trainingBtn.setFillStyle(0x2d5a27));
@@ -526,9 +530,7 @@ export class GameScene extends Phaser.Scene {
       .setInteractive()
       .on('pointerdown', () => {
         console.log('Multiplayer button clicked');
-        const url = new URL(window.location.href);
-        url.searchParams.set('multiplayer', 'true');
-        window.location.href = url.toString();
+        window.location.href = '/pong?multiplayer=true';
       })
       .on('pointerover', () => multiBtn.setFillStyle(0x764ba2))
       .on('pointerout', () => multiBtn.setFillStyle(0x667eea));
