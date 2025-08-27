@@ -190,7 +190,25 @@ export class GameScene extends Phaser.Scene {
       if (this.isTrainingMode) {
         this.handleTrainingInput(pointer);
       } else {
-        this.sendInput({ type:'move', x:pointer.x, y:pointer.y });
+        // In multiplayer, clamp movement to player's half
+        let minY, maxY;
+        if (this.mySide === 'bottom') {
+          minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+          maxY = this.courtBounds.bottom - 40;
+        } else {
+          minY = this.courtBounds.top + 40;
+          maxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+        }
+        
+        const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
+        const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
+        
+        // Update my position immediately for smooth movement
+        this.me.setPosition(clampedX, clampedY);
+        this.updateRacketPositions();
+        
+        // Send to server
+        this.sendInput({ type:'move', x:clampedX, y:clampedY });
       }
     });
     
@@ -262,29 +280,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTrainingInput(pointer: Phaser.Input.Pointer) {
-    // In training, always move in bottom half
-    let minY, maxY;
-    if (this.mySide === 'bottom' || this.isTrainingMode) {
-      // Je suis en bas (ou training) - je bouge dans la moitié basse
-      minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-      maxY = this.courtBounds.bottom - 40;
-    } else {
-      // Top player sees flipped view
-      minY = this.courtBounds.top + 40;
-      maxY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
-    }
+    // In training mode, player is always at bottom
+    const minY = this.courtBounds.top + (this.courtBounds.bottom - this.courtBounds.top) / 2;
+    const maxY = this.courtBounds.bottom - 40;
     
     const clampedX = Phaser.Math.Clamp(pointer.x, this.courtBounds.left + 40, this.courtBounds.right - 40);
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
     
     this.me.setPosition(clampedX, clampedY);
     this.updateRacketPositions();
-    
-    // Send input to server if in multiplayer (coordinates are already in client space)
-    if (!this.isTrainingMode && this.socket) {
-      const serverCoords = this.transformCoordinatesForServer(clampedX, clampedY);
-      this.sendInput({ type: 'move', x: serverCoords.x, y: serverCoords.y });
-    }
   }
 
   private serveTrainingBall() {
@@ -416,9 +420,8 @@ export class GameScene extends Phaser.Scene {
 
     if (key) {
       const img = this.add.image(0, 0, key);
-      img.setOrigin(0.5, 0.8); // Center horizontally, bottom of racket at player
-      img.setScale(0.25); // Reduced size
-      img.setAngle(handed === 'right' ? -15 : 15);
+      img.setOrigin(0.5, 0.5); // Center the racket
+      img.setScale(0.15); // Smaller size
       img.setDepth(3);
       return img;
     }
@@ -430,39 +433,38 @@ export class GameScene extends Phaser.Scene {
   private createVisualRacket(handed: Handed): Phaser.GameObjects.Container {
     const container = this.add.container(0, 0);
     
-    // Racket head (oval) - reduced size
-    const head = this.add.ellipse(0, -15, 25, 40, 0x8B4513);
-    head.setStrokeStyle(3, 0x654321);
+    // Racket head (oval) - smaller size
+    const head = this.add.ellipse(0, -8, 16, 24, 0x8B4513);
+    head.setStrokeStyle(2, 0x654321);
     
-    // Handle - reduced size
-    const handle = this.add.rectangle(0, 10, 6, 30, 0x654321);
+    // Handle - smaller size
+    const handle = this.add.rectangle(0, 6, 4, 18, 0x654321);
     
-    // Strings (vertical) - reduced size
-    for (let i = -10; i <= 10; i += 4) {
-      const string = this.add.line(0, -15, i, -30, i, 0, 0xFFFFFF);
+    // Strings (vertical) - smaller size
+    for (let i = -6; i <= 6; i += 3) {
+      const string = this.add.line(0, -8, i, -18, i, 2, 0xFFFFFF);
       string.setLineWidth(1);
       container.add(string);
     }
     
-    // Strings (horizontal) - reduced size
-    for (let i = -25; i <= -5; i += 6) {
-      const string = this.add.line(0, -15, -10, i, 10, i, 0xFFFFFF);
+    // Strings (horizontal) - smaller size
+    for (let i = -16; i <= -2; i += 4) {
+      const string = this.add.line(0, -8, -6, i, 6, i, 0xFFFFFF);
       string.setLineWidth(1);
       container.add(string);
     }
     
-    // Grip tape - reduced size
-    const grip = this.add.rectangle(0, 20, 8, 15, 0x333333);
+    // Grip tape - smaller size
+    const grip = this.add.rectangle(0, 12, 5, 9, 0x333333);
     
-    // Grip lines - reduced size
-    for (let i = 0; i < 3; i++) {
-      const gripLine = this.add.rectangle(0, 15 + i * 3, 10, 1, 0x555555);
+    // Grip lines - smaller size
+    for (let i = 0; i < 2; i++) {
+      const gripLine = this.add.rectangle(0, 9 + i * 2, 6, 1, 0x555555);
       container.add(gripLine);
     }
     
     container.add([head, handle, grip]);
-    container.setScale(0.8); // Further reduced scale
-    container.setAngle(handed === 'right' ? -15 : 15);
+    container.setScale(0.6); // Smaller scale
     container.setDepth(3);
     
     return container;
@@ -484,10 +486,17 @@ export class GameScene extends Phaser.Scene {
     side: PlayerSide, 
     handed: Handed
   ) {
-    // Adjust offset based on side
-    const yOffset = side === 'bottom' ? -40 : +40;
-    const xOffset = handed === 'right' ? +15 : -15;
+    // Adjust offset based on side - fix positioning
+    const yOffset = side === 'bottom' ? -25 : +25;
+    const xOffset = handed === 'right' ? +10 : -10;
     racket.setPosition(px + xOffset, py + yOffset);
+    
+    // Ensure racket is visible and properly oriented
+    if (side === 'bottom') {
+      racket.setRotation(handed === 'right' ? -0.2 : 0.2);
+    } else {
+      racket.setRotation(handed === 'right' ? 0.2 : -0.2);
+    }
   }
 
   private createMenuButton() {
