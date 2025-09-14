@@ -24,6 +24,10 @@ export class GameScene extends Phaser.Scene {
   private me!: Phaser.GameObjects.Arc;
   private opp!: Phaser.GameObjects.Arc;
 
+  // NEW: avatars (images) à la place des points noirs
+  private myAvatar!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
+  private oppAvatar!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
+
   private myRacket!: Phaser.GameObjects.Image | Phaser.GameObjects.Container;
   private oppRacket!: Phaser.GameObjects.Image | Phaser.GameObjects.Container;
 
@@ -90,16 +94,22 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Load character assets
+    // --- Characters de base disponibles localement
     this.load.image('amara', '/assets/players/amara.png');
     this.load.image('south-park', '/assets/players/south-park.png');
 
-    // Load equipped character from URL params
+    // --- Équipé via URL (character param encodé)
     const characterData = params.get('character');
     if (characterData) {
       try {
         const character = JSON.parse(decodeURIComponent(characterData));
-        if (character.id) {
+        // priorité à imagePath si fourni par le backend
+        if (character.imagePath) {
+          const p: string = character.imagePath.startsWith('/assets')
+            ? character.imagePath
+            : `/assets/players/${character.imagePath}`;
+          this.load.image('character_my', p);
+        } else if (character.id) {
           this.load.image('character_my', `/assets/players/${character.id}.png`);
         }
       } catch (e) {
@@ -142,9 +152,13 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(w/2+2, courtY + courtH/2+2, courtW, 2, 0x000000).setAlpha(.25).setDepth(1.9);
     }
 
-    // Players (circles) - me en bas côté vue
-    this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111);
-    this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244);
+    // Players “hitbox” circles (cachés)
+    this.me  = this.add.circle(w/2, this.courtBounds.bottom - 40, 20, 0x111111).setVisible(false);
+    this.opp = this.add.circle(w/2, this.courtBounds.top + 40, 20, 0x222244).setVisible(false);
+
+    // Avatars (images) qui remplacent les points noirs
+    this.myAvatar  = this.createPlayerSprite(this.me.x,  this.me.y,  true);
+    this.oppAvatar = this.createPlayerSprite(this.opp.x, this.opp.y, false);
 
     // Ball
     this.ball = this.add.circle(w/2, this.courtBounds.bottom - 80, 10, 0xffde59);
@@ -176,7 +190,6 @@ export class GameScene extends Phaser.Scene {
 
   // --------- Helpers de transform : miroir vertical autour du court ---------
   private mirrorY(y: number): number {
-    // miroir autour du centre du court (BOUNDS.top/bottom)
     return this.courtBounds.top + this.courtBounds.bottom - y;
   }
   private viewToServer(x: number, y: number) {
@@ -192,7 +205,6 @@ export class GameScene extends Phaser.Scene {
       if (this.isTrainingMode) {
         this.handleTrainingInput(pointer);
       } else {
-        // En vue: déplacer dans la moitié basse
         const minY = (this.courtBounds.top + this.courtBounds.bottom) / 2;
         const maxY = this.courtBounds.bottom - 40;
 
@@ -201,9 +213,9 @@ export class GameScene extends Phaser.Scene {
 
         // feedback local
         this.me.setPosition(clampedX, clampedY);
-        this.updateRacketPositions();
+        this.syncAvatarsAndRackets();
 
-        // envoyer au serveur (J2 -> miroir)
+        // envoyer au serveur
         const s = this.viewToServer(clampedX, clampedY);
         this.sendInput({ type:'move', x:s.x, y:s.y });
       }
@@ -230,10 +242,8 @@ export class GameScene extends Phaser.Scene {
     this.scoreTop = 0;
     this.scoreBottom = 0;
 
-    // Position ball for serve
     this.resetTrainingBall();
 
-    // Start training loop
     this.trainingLoop = this.time.addEvent({
       delay: 16,
       callback: this.updateTraining,
@@ -267,14 +277,13 @@ export class GameScene extends Phaser.Scene {
     const clampedY = Phaser.Math.Clamp(pointer.y, minY, maxY);
 
     this.me.setPosition(clampedX, clampedY);
-    this.updateRacketPositions();
+    this.syncAvatarsAndRackets();
   }
 
   private serveTrainingBall() {
     if (!this.serving) return;
     this.serving = false;
 
-    // Random serve angle
     const angle = Phaser.Math.Between(-45, -20);
     const rad = Phaser.Math.DegToRad(angle);
 
@@ -318,7 +327,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const oppMinY = this.courtBounds.top + 40;
-    const oppMaxY = (this.courtBounds.top + this.courtBounds.bottom) / 2 - 40;
+       const oppMaxY = (this.courtBounds.top + this.courtBounds.bottom) / 2 - 40;
     this.opp.y = Phaser.Math.Clamp(this.opp.y, oppMinY, oppMaxY);
 
     // Collisions
@@ -327,8 +336,8 @@ export class GameScene extends Phaser.Scene {
     // UI
     this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
 
-    // Rackets
-    this.updateRacketPositions();
+    // Rackets + avatars
+    this.syncAvatarsAndRackets();
   }
 
   private checkTrainingCollisions() {
@@ -373,11 +382,13 @@ export class GameScene extends Phaser.Scene {
     const ballY = playerY - 40;
 
     this.me.setPosition(centerX, playerY);
+    if (this.myAvatar) this.myAvatar.setPosition(centerX, playerY);
+
     this.ball.setPosition(centerX, ballY);
     this.ballVelocity.x = 0;
     this.ballVelocity.y = 0;
 
-    this.updateRacketPositions();
+    this.syncAvatarsAndRackets();
   }
 
   private createRacketSprite(isMine: boolean, handed: Handed): Phaser.GameObjects.Image | Phaser.GameObjects.Container {
@@ -439,23 +450,33 @@ export class GameScene extends Phaser.Scene {
       // Try equipped character first
       if (this.textures.exists('character_my')) {
         characterKey = 'character_my';
-      } else {
-        characterKey = 'amara'; // Default
+      } else if (this.textures.exists('amara')) {
+        characterKey = 'amara'; // Default local
       }
     } else {
-      characterKey = 'south-park';
+      characterKey = this.textures.exists('south-park') ? 'south-park' : 'amara';
     }
     
-    if (this.textures.exists(characterKey)) {
+    if (characterKey && this.textures.exists(characterKey)) {
       const sprite = this.add.image(x, y, characterKey);
-      sprite.setScale(0.12);
-      sprite.setDepth(1);
+      sprite.setScale(0.36);
+      sprite.setDepth(1); // sous la raquette (raquette depth = 3)
       return sprite;
     }
     
     // Fallback
     const color = isMe ? 0x111111 : 0x222244;
     return this.add.circle(x, y, 20, color);
+  }
+
+  // Regroupe le suivi avatars + positionnement raquettes
+  private syncAvatarsAndRackets() {
+    // avatars suivent me/opp
+    if (this.myAvatar)  this.myAvatar.setPosition(this.me.x,  this.me.y);
+    if (this.oppAvatar) this.oppAvatar.setPosition(this.opp.x, this.opp.y);
+
+    // raquettes suivent aussi
+    this.updateRacketPositions();
   }
 
   private updateRacketPositions() {
@@ -583,7 +604,6 @@ export class GameScene extends Phaser.Scene {
       this.scoreBottom = s.players.bottom?.score || 0;
       this.scoreTop    = s.players.top?.score || 0;
     } else {
-      // Je suis TOP → miroir pour la vue locale
       if (s.players.top) {
         const v = this.serverToView(s.players.top.x, s.players.top.y);
         this.smoothTo(this.me, v.x, v.y);
@@ -601,7 +621,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
-    this.updateRacketPositions();
+
+    // sync avatars + raquettes
+    this.syncAvatarsAndRackets();
 
     const myData = this.mySide === 'bottom' ? s.players.bottom : s.players.top;
     if (myData && typeof myData.fury === 'number') {
@@ -643,6 +665,6 @@ export class GameScene extends Phaser.Scene {
 
   destroy() {
     if (this.trainingLoop) this.trainingLoop.destroy();
-    super.destroy();
+    // super.destroy(); // Phaser.Scene does not have a destroy method
   }
 }

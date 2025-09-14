@@ -22,12 +22,12 @@ export const defaultCharacters = [
     isActive: true
   },
   {
-    id: 'south-park',
-    name: 'South Park Player',
+    id: 'stan',
+    name: 'Stan',
     description: 'A fun character from South Park universe',
     price: 0, // Gratuit
     rarity: 'common' as const,
-    imagePath: '/assets/players/south-park.png',
+    imagePath: '/assets/players/stan.png',
     stats: {
       speed: 60,
       agility: 70,

@@ -9,43 +9,43 @@
     </div>
 
     <div class="shop-tabs">
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'rackets'"
         (click)="activeTab = 'rackets'"
       >
         Rackets
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'components'"
         (click)="activeTab = 'components'"
       >
         Components
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'characters'"
         (click)="activeTab = 'characters'"
       >
         Characters
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'my-rackets'"
         (click)="activeTab = 'my-rackets'"
       >
         My Rackets
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'rental-market'"
         (click)="activeTab = 'rental-market'"
       >
         Rental Market
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'my-rentals'"
         (click)="activeTab = 'my-rentals'"
       >
@@ -67,9 +67,9 @@
             <h3>{{ racket.name }}</h3>
             <span class="rarity-badge" [style.color]="getRarityColor(racket.rarity)">{{ racket.rarity | titlecase }}</span>
           </div>
-          
+
           <div class="racket-visual">
-            <div class="racket-preview" 
+            <div class="racket-preview"
                  [style.background]="'linear-gradient(45deg, ' + racket.visualConfig.frameColor + ', ' + racket.visualConfig.handleColor + ')'">
               🎾
             </div>
@@ -90,7 +90,7 @@
 
           <div class="racket-actions">
             <div class="price">{{ racket.basePrice | number }} coins</div>
-            <button 
+            <button
               class="btn btn-primary"
               [disabled]="!canPurchaseRacket(racket)"
               (click)="purchaseRacket(racket)"
@@ -107,41 +107,11 @@
     <!-- Components Tab -->
     <div class="tab-content" *ngIf="activeTab === 'components' && !loading">
       <div class="component-filters">
-        <button 
-          class="filter-btn" 
-          [class.active]="selectedComponentType === 'all'"
-          (click)="selectedComponentType = 'all'"
-        >
-          All
-        </button>
-        <button 
-          class="filter-btn" 
-          [class.active]="selectedComponentType === 'strings'"
-          (click)="selectedComponentType = 'strings'"
-        >
-          Strings
-        </button>
-        <button 
-          class="filter-btn" 
-          [class.active]="selectedComponentType === 'handle'"
-          (click)="selectedComponentType = 'handle'"
-        >
-          Handles
-        </button>
-        <button 
-          class="filter-btn" 
-          [class.active]="selectedComponentType === 'grip_tape'"
-          (click)="selectedComponentType = 'grip_tape'"
-        >
-          Grip Tape
-        </button>
-        <button 
-          class="filter-btn" 
-          [class.active]="selectedComponentType === 'dampener'"
-          (click)="selectedComponentType = 'dampener'"
-        >
-          Dampeners
-        </button>
+        <button class="filter-btn" [class.active]="selectedComponentType === 'all'" (click)="selectedComponentType = 'all'">All</button>
+        <button class="filter-btn" [class.active]="selectedComponentType === 'strings'" (click)="selectedComponentType = 'strings'">Strings</button>
+        <button class="filter-btn" [class.active]="selectedComponentType === 'handle'" (click)="selectedComponentType = 'handle'">Handles</button>
+        <button class="filter-btn" [class.active]="selectedComponentType === 'grip_tape'" (click)="selectedComponentType = 'grip_tape'">Grip Tape</button>
+        <button class="filter-btn" [class.active]="selectedComponentType === 'dampener'" (click)="selectedComponentType = 'dampener'">Dampeners</button>
       </div>
 
       <div class="components-grid">
@@ -150,17 +120,17 @@
             <h4>{{ component.name }}</h4>
             <span class="rarity-badge" [style.color]="getRarityColor(component.rarity)">{{ component.rarity | titlecase }}</span>
           </div>
-          
+
           <div class="component-type">{{ component.type | titlecase }}</div>
           <p class="component-description">{{ component.description }}</p>
-          
+
           <div class="component-effects">
             <strong>Effects:</strong> {{ getEffectText(component) }}
           </div>
 
           <div class="component-actions">
             <div class="price">{{ component.price | number }} coins</div>
-            <button 
+            <button
               class="btn btn-primary btn-small"
               [disabled]="userCoins < component.price"
               (click)="purchaseComponent(component)"
@@ -181,10 +151,14 @@
             <h3>{{ character.name }}</h3>
             <span class="rarity-badge" [style.color]="getRarityColor(character.rarity)">{{ character.rarity | titlecase }}</span>
           </div>
-          
+
           <div class="character-visual">
-            <img [src]="'/assets/players/' + character.id + '.png'" [alt]="character.name" class="character-image" 
-                 (error)="$event.target.src='/assets/avatars/default.png'">
+            <img
+              [src]="getCharacterImg(character)"
+              [alt]="character.name"
+              class="character-image"
+              (error)="onImgError($event)"
+            />
           </div>
 
           <p class="character-description">{{ character.description }}</p>
@@ -230,7 +204,7 @@
           <div class="character-actions">
             <div class="price" *ngIf="character.price > 0">{{ character.price | number }} coins</div>
             <div class="price free" *ngIf="character.price === 0">FREE</div>
-            <button 
+            <button
               class="btn btn-primary"
               *ngIf="!isCharacterOwned(character)"
               [disabled]="!canPurchaseCharacter(character)"
@@ -240,7 +214,7 @@
               <span *ngIf="character.price === 0">Get Free</span>
               <span *ngIf="character.price > 0">Buy</span>
             </button>
-            <button 
+            <button
               class="btn btn-success"
               *ngIf="isCharacterOwned(character)"
               (click)="equipCharacter(character)"
@@ -261,13 +235,17 @@
               <h4>{{ character.name }}</h4>
               <span class="rarity-badge" [style.color]="getRarityColor(character.rarity)">{{ character.rarity | titlecase }}</span>
             </div>
-            
+
             <div class="character-visual">
-              <img [src]="'/assets/players/' + character.id + '.png'" [alt]="character.name" class="character-image"
-                   (error)="$event.target.src='/assets/avatars/default.png'">
+              <img
+                [src]="getCharacterImg(character)"
+                [alt]="character.name"
+                class="character-image"
+                (error)="onImgError($event)"
+              />
             </div>
 
-            <button 
+            <button
               class="btn btn-primary btn-small"
               (click)="equipCharacter(character)"
             >
@@ -289,7 +267,7 @@
           </div>
 
           <div class="racket-visual">
-            <div class="racket-preview" 
+            <div class="racket-preview"
                  [style.background]="'linear-gradient(45deg, ' + userRacket.racketId.visualConfig.frameColor + ', ' + userRacket.racketId.visualConfig.handleColor + ')'">
               🎾
             </div>
@@ -308,28 +286,19 @@
           </div>
 
           <div class="racket-actions">
-            <button 
-              class="btn btn-outline btn-small"
-              (click)="customizeRacket(userRacket)"
-            >
-              Customize
-            </button>
-            <button 
-              class="btn btn-primary btn-small"
-              [disabled]="userRacket.isEquipped"
-              (click)="equipRacket(userRacket)"
-            >
+            <button class="btn btn-outline btn-small" (click)="customizeRacket(userRacket)">Customize</button>
+            <button class="btn btn-primary btn-small" [disabled]="userRacket.isEquipped" (click)="equipRacket(userRacket)">
               <span *ngIf="!userRacket.isEquipped">Equip</span>
               <span *ngIf="userRacket.isEquipped">Equipped</span>
             </button>
-            <button 
+            <button
               class="btn btn-secondary btn-small"
               *ngIf="!userRacket.isEquipped && !userRacket.isRented && !userRacket.rentPrice"
               (click)="openRentModal(userRacket)"
             >
               Set for Rent
             </button>
-            <button 
+            <button
               class="btn btn-outline btn-small"
               *ngIf="userRacket.rentPrice && !userRacket.isRented"
               (click)="removeFromRent(userRacket)"
@@ -359,12 +328,12 @@
           </div>
 
           <div class="owner-info">
-            <img [src]="rental.userId.avatar || '/assets/avatars/default.png'" alt="Owner" class="owner-avatar">
+            <img [src]="rental.userId.avatar || '/assets/avatars/default.png'" alt="Owner" class="owner-avatar" (error)="onImgError($event)">
             <span>{{ rental.userId.username }}</span>
           </div>
 
           <div class="racket-visual">
-            <div class="racket-preview" 
+            <div class="racket-preview"
                  [style.background]="'linear-gradient(45deg, ' + rental.racketId.visualConfig.frameColor + ', ' + rental.racketId.visualConfig.handleColor + ')'">
               🎾
             </div>
@@ -382,7 +351,7 @@
             <div class="rent-duration">{{ rental.rentDuration }} hours</div>
           </div>
 
-          <button 
+          <button
             class="btn btn-primary"
             [disabled]="!rental.rentPrice || userCoins < rental.rentPrice"
             (click)="rentRacket(rental)"
@@ -405,12 +374,12 @@
           </div>
 
           <div class="owner-info">
-            <img [src]="rental.userId.avatar || '/assets/avatars/default.png'" alt="Owner" class="owner-avatar">
+            <img [src]="rental.userId.avatar || '/assets/avatars/default.png'" alt="Owner" class="owner-avatar" (error)="onImgError($event)">
             <span>Owner: {{ rental.userId.username }}</span>
           </div>
 
           <div class="racket-visual">
-            <div class="racket-preview" 
+            <div class="racket-preview"
                  [style.background]="'linear-gradient(45deg, ' + rental.racketId.visualConfig.frameColor + ', ' + rental.racketId.visualConfig.handleColor + ')'">
               🎾
             </div>

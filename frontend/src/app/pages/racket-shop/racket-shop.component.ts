@@ -17,8 +17,8 @@ export class RacketShopComponent implements OnInit {
   myCharacters: Character[] = [];
   userCoins = 0;
   loading = true;
-  activeTab = 'rackets';
-  selectedComponentType = 'all';
+  activeTab: 'rackets' | 'components' | 'characters' | 'my-rackets' | 'rental-market' | 'my-rentals' = 'rackets';
+  selectedComponentType: 'all' | 'strings' | 'handle' | 'grip_tape' | 'dampener' = 'all';
 
   // Rental properties
   rentalMarket: RentalRacket[] = [];
@@ -68,6 +68,30 @@ export class RacketShopComponent implements OnInit {
     }
   }
 
+getCharacterImg(c: Character): string {
+  const explicit = (c as any).image || (c as any).asset || (c as any).file;
+  if (explicit) return explicit.startsWith('/assets') ? explicit : `/assets/players/${explicit}`;
+  const slug = this.slugify(c.name || (c as any).id || 'default');
+  return `/assets/players/${slug}.png`;
+}
+
+private slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accents
+    .replace(/[^a-z0-9]+/g, '-')                     // espaces -> -
+    .replace(/^-+|-+$/g, '');
+}
+
+
+  // Image error fallback (avatars / characters)
+  onImgError(ev: Event) {
+    const img = ev.target as HTMLImageElement | null;
+    if (img && img.src.indexOf('/assets/avatars/default.png') === -1) {
+      img.src = '/assets/avatars/default.png';
+    }
+  }
+
   get filteredComponents() {
     if (this.selectedComponentType === 'all') {
       return this.components;
@@ -80,16 +104,14 @@ export class RacketShopComponent implements OnInit {
       alert('Insufficient coins!');
       return;
     }
-
     if (this.myRackets.some(r => r.racketId.id === racket.id)) {
       alert('You already own this racket!');
       return;
     }
-
     try {
       const result = await this.racketService.purchaseRacket(racket.id).toPromise();
       this.userCoins = result.newBalance;
-      await this.loadData(); // Refresh data
+      await this.loadData();
       alert(`Successfully purchased ${racket.name}!`);
     } catch (error: any) {
       alert(error.error?.error || 'Failed to purchase racket');
@@ -101,7 +123,6 @@ export class RacketShopComponent implements OnInit {
       alert('Insufficient coins!');
       return;
     }
-
     try {
       const result = await this.racketService.purchaseComponent(component.id).toPromise();
       this.userCoins = result.newBalance;
@@ -118,7 +139,7 @@ export class RacketShopComponent implements OnInit {
   async equipRacket(userRacket: UserRacket) {
     try {
       await this.racketService.equipRacket(userRacket._id).toPromise();
-      await this.loadData(); // Refresh data
+      await this.loadData();
       alert(`${userRacket.racketId.name} equipped!`);
     } catch (error: any) {
       alert(error.error?.error || 'Failed to equip racket');
@@ -139,15 +160,13 @@ export class RacketShopComponent implements OnInit {
 
   async setForRent() {
     if (!this.selectedRacketForRent) return;
-
     try {
       await this.racketService.setForRent(
-        this.selectedRacketForRent._id, 
-        this.rentPrice, 
+        this.selectedRacketForRent._id,
+        this.rentPrice,
         this.rentDuration
       ).toPromise();
-      
-      await this.loadData(); // Refresh data
+      await this.loadData();
       this.closeRentModal();
       alert('Racket set for rent successfully!');
     } catch (error: any) {
@@ -160,11 +179,10 @@ export class RacketShopComponent implements OnInit {
       alert('Insufficient coins!');
       return;
     }
-
     try {
       const result = await this.racketService.rentRacket(racket._id).toPromise();
       this.userCoins = result.newBalance;
-      await this.loadData(); // Refresh data
+      await this.loadData();
       alert(`Successfully rented ${racket.racketId.name}!`);
     } catch (error: any) {
       alert(error.error?.error || 'Failed to rent racket');
@@ -174,7 +192,7 @@ export class RacketShopComponent implements OnInit {
   async removeFromRent(userRacket: UserRacket) {
     try {
       await this.racketService.removeFromRent(userRacket._id).toPromise();
-      await this.loadData(); // Refresh data
+      await this.loadData();
       alert('Racket removed from rental market!');
     } catch (error: any) {
       alert(error.error?.error || 'Failed to remove racket from rent');
@@ -186,16 +204,14 @@ export class RacketShopComponent implements OnInit {
       alert('Insufficient coins!');
       return;
     }
-
     if (this.myCharacters.some(c => c.id === character.id)) {
       alert('You already own this character!');
       return;
     }
-
     try {
       const result = await this.characterService.purchaseCharacter(character.id).toPromise();
       this.userCoins = result.newBalance;
-      await this.loadData(); // Refresh data
+      await this.loadData();
       alert(`Successfully obtained ${character.name}!`);
     } catch (error: any) {
       alert(error.error?.error || 'Failed to obtain character');
@@ -250,7 +266,7 @@ export class RacketShopComponent implements OnInit {
   }
 
   getEffectText(component: RacketComponent): string {
-    const effects = [];
+    const effects: string[] = [];
     if (component.effects.powerBonus) effects.push(`+${component.effects.powerBonus} Power`);
     if (component.effects.controlBonus) effects.push(`+${component.effects.controlBonus} Control`);
     if (component.effects.speedBonus) effects.push(`+${component.effects.speedBonus} Speed`);
