@@ -415,6 +415,45 @@ export class GameScene extends Phaser.Scene {
     return container;
   }
 
+  private createPlayerSprite(x: number, y: number, isMe: boolean): Phaser.GameObjects.Image | Phaser.GameObjects.Circle {
+    // Try to load character image first
+    let characterKey = '';
+    
+    if (isMe) {
+      // Check for custom character from URL params
+      const params = new URLSearchParams(window.location.search);
+      const characterData = params.get('character');
+      if (characterData) {
+        try {
+          const character = JSON.parse(decodeURIComponent(characterData));
+          characterKey = character.id || '';
+        } catch (e) {
+          console.warn('Failed to parse character data:', e);
+        }
+      }
+      
+      // Default to amara if no character specified
+      if (!characterKey) {
+        characterKey = 'amara';
+      }
+    } else {
+      // Opponent gets south-park by default
+      characterKey = 'south-park';
+    }
+    
+    // Try to create image sprite
+    if (characterKey && this.textures.exists(characterKey)) {
+      const sprite = this.add.image(x, y, characterKey);
+      sprite.setScale(0.15); // Adjust size as needed
+      sprite.setDepth(1);
+      return sprite;
+    }
+    
+    // Fallback to circle
+    const color = isMe ? 0x111111 : 0x222244;
+    return this.add.circle(x, y, 20, color);
+  }
+
   private updateRacketPositions() {
     if (this.myRacket) {
       this.positionRacket(this.myRacket, this.me.x, this.me.y, 'bottom', this.myHandedness);

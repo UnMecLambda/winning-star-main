@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth.service';
 import { RacketService } from '../../services/racket.service';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-pong',
@@ -13,7 +14,8 @@ export class PongComponent {
   
   constructor(
     private auth: AuthService,
-    private racketService: RacketService
+    private racketService: RacketService,
+    private userService: UserService
   ) {
     // Check if practice mode is requested
     const urlParams = new URLSearchParams(window.location.search);

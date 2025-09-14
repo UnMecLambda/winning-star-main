@@ -25,6 +25,13 @@
       </button>
       <button 
         class="tab-btn" 
+        [class.active]="activeTab === 'characters'"
+        (click)="activeTab = 'characters'"
+      >
+        Characters
+      </button>
+      <button 
+        class="tab-btn" 
         [class.active]="activeTab === 'my-rackets'"
         (click)="activeTab = 'my-rackets'"
       >
@@ -160,6 +167,101 @@
             >
               <lucide-icon name="shopping-cart"></lucide-icon>
               Buy
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Characters Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'characters' && !loading">
+      <div class="characters-grid">
+        <div class="character-card" *ngFor="let character of characters" [style.background]="getRarityGradient(character.rarity)">
+          <div class="character-header">
+            <h3>{{ character.name }}</h3>
+            <span class="rarity-badge" [style.color]="getRarityColor(character.rarity)">{{ character.rarity | titlecase }}</span>
+          </div>
+          
+          <div class="character-visual">
+            <img [src]="character.imagePath" [alt]="character.name" class="character-image">
+          </div>
+
+          <p class="character-description">{{ character.description }}</p>
+
+          <div class="stats-grid">
+            <div class="stat">
+              <span class="stat-name">Speed</span>
+              <div class="stat-bar">
+                <div class="stat-fill" [style.width.%]="character.stats.speed"></div>
+              </div>
+              <span class="stat-value">{{ character.stats.speed }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-name">Agility</span>
+              <div class="stat-bar">
+                <div class="stat-fill" [style.width.%]="character.stats.agility"></div>
+              </div>
+              <span class="stat-value">{{ character.stats.agility }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-name">Stamina</span>
+              <div class="stat-bar">
+                <div class="stat-fill" [style.width.%]="character.stats.stamina"></div>
+              </div>
+              <span class="stat-value">{{ character.stats.stamina }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-name">Luck</span>
+              <div class="stat-bar">
+                <div class="stat-fill" [style.width.%]="character.stats.luck"></div>
+              </div>
+              <span class="stat-value">{{ character.stats.luck }}</span>
+            </div>
+          </div>
+
+          <div class="character-effects" *ngIf="character.effects.speedBonus || character.effects.furyRateBonus || character.effects.experienceBonus">
+            <strong>Effects:</strong>
+            <span *ngIf="character.effects.speedBonus">+{{ character.effects.speedBonus }}% Speed</span>
+            <span *ngIf="character.effects.furyRateBonus">+{{ character.effects.furyRateBonus }}% Fury Rate</span>
+            <span *ngIf="character.effects.experienceBonus">+{{ character.effects.experienceBonus }}% XP</span>
+          </div>
+
+          <div class="character-actions">
+            <div class="price" *ngIf="character.price > 0">{{ character.price | number }} coins</div>
+            <div class="price free" *ngIf="character.price === 0">FREE</div>
+            <button 
+              class="btn btn-primary"
+              [disabled]="!canPurchaseCharacter(character)"
+              (click)="purchaseCharacter(character)"
+            >
+              <lucide-icon name="shopping-cart"></lucide-icon>
+              <span *ngIf="!isCharacterOwned(character) && character.price === 0">Get Free</span>
+              <span *ngIf="!isCharacterOwned(character) && character.price > 0">Buy</span>
+              <span *ngIf="isCharacterOwned(character)">Owned</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Characters Section -->
+      <div class="my-characters-section" *ngIf="myCharacters.length > 0">
+        <h3>My Characters</h3>
+        <div class="my-characters-grid">
+          <div class="my-character-card" *ngFor="let character of myCharacters">
+            <div class="character-header">
+              <h4>{{ character.name }}</h4>
+              <span class="rarity-badge" [style.color]="getRarityColor(character.rarity)">{{ character.rarity | titlecase }}</span>
+            </div>
+            
+            <div class="character-visual">
+              <img [src]="character.imagePath" [alt]="character.name" class="character-image">
+            </div>
+
+            <button 
+              class="btn btn-primary btn-small"
+              (click)="equipCharacter(character)"
+            >
+              Equip
             </button>
           </div>
         </div>

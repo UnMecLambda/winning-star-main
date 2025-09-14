@@ -16,6 +16,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import storeRoutes from './routes/store';
 import racketRoutes from './routes/rackets';
+import characterRoutes from './routes/characters';
 import gameRoutes from './routes/game';
 import ledgerRoutes from './routes/ledger';
 import withdrawalRoutes from './routes/withdrawals';
@@ -23,6 +24,7 @@ import { setupSocketHandlers } from './socket/handlers';
 import { errorHandler } from './middleware/errorHandler';
 import { authenticateSocket } from './middleware/socketAuth';
 import { seedRacketData } from './data/rackets';
+import { seedCharacterData } from './data/characters';
 
 const app = express();
 const server = createServer(app);
@@ -67,6 +69,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/store', storeRoutes);
 app.use('/api/rackets', racketRoutes);
+app.use('/api/characters', characterRoutes);
 app.use('/api/game', gameRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
@@ -89,6 +92,7 @@ async function startServer() {
   try {
     await connectDatabase();
     await seedRacketData();
+    await seedCharacterData();
     await connectRedis();
 
     server.listen(PORT, () => {

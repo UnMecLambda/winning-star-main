@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { RacketService, Racket, RacketComponent, UserRacket, RentalRacket } from '../../services/racket.service';
+import { CharacterService, Character } from '../../services/character.service';
 import { UserService } from '../../services/user.service';
 
 @Component({
@@ -12,6 +13,8 @@ export class RacketShopComponent implements OnInit {
   rackets: Racket[] = [];
   components: RacketComponent[] = [];
   myRackets: UserRacket[] = [];
+  characters: Character[] = [];
+  myCharacters: Character[] = [];
   userCoins = 0;
   loading = true;
   activeTab = 'rackets';
@@ -27,6 +30,7 @@ export class RacketShopComponent implements OnInit {
 
   constructor(
     private racketService: RacketService,
+    private characterService: CharacterService,
     private userService: UserService,
     private router: Router
   ) {}
@@ -38,10 +42,12 @@ export class RacketShopComponent implements OnInit {
   async loadData() {
     this.loading = true;
     try {
-      const [rackets, components, myRackets, user, rentalMarket, myRentals] = await Promise.all([
+      const [rackets, components, myRackets, characters, myCharacters, user, rentalMarket, myRentals] = await Promise.all([
         this.racketService.getRackets().toPromise(),
         this.racketService.getComponents().toPromise(),
         this.racketService.getMyRackets().toPromise(),
+        this.characterService.getCharacters().toPromise(),
+        this.characterService.getMyCharacters().toPromise(),
         this.userService.getProfile().toPromise(),
         this.racketService.getRentalMarket().toPromise(),
         this.racketService.getMyRentalsWithOwner().toPromise()
@@ -50,6 +56,8 @@ export class RacketShopComponent implements OnInit {
       this.rackets = rackets || [];
       this.components = components || [];
       this.myRackets = myRackets || [];
+      this.characters = characters || [];
+      this.myCharacters = myCharacters || [];
       this.userCoins = user?.coins || 0;
       this.rentalMarket = rentalMarket?.rackets || [];
       this.myRentals = myRentals || [];
@@ -171,6 +179,44 @@ export class RacketShopComponent implements OnInit {
     } catch (error: any) {
       alert(error.error?.error || 'Failed to remove racket from rent');
     }
+  }
+
+  async purchaseCharacter(character: Character) {
+    if (character.price > 0 && this.userCoins < character.price) {
+      alert('Insufficient coins!');
+      return;
+    }
+
+    if (this.myCharacters.some(c => c.id === character.id)) {
+      alert('You already own this character!');
+      return;
+    }
+
+    try {
+      const result = await this.characterService.purchaseCharacter(character.id).toPromise();
+      this.userCoins = result.newBalance;
+      await this.loadData(); // Refresh data
+      alert(`Successfully obtained ${character.name}!`);
+    } catch (error: any) {
+      alert(error.error?.error || 'Failed to obtain character');
+    }
+  }
+
+  async equipCharacter(character: Character) {
+    try {
+      await this.characterService.equipCharacter(character.id).toPromise();
+      alert(`${character.name} equipped!`);
+    } catch (error: any) {
+      alert(error.error?.error || 'Failed to equip character');
+    }
+  }
+
+  isCharacterOwned(character: Character): boolean {
+    return this.myCharacters.some(c => c.id === character.id);
+  }
+
+  canPurchaseCharacter(character: Character): boolean {
+    return (character.price === 0 || this.userCoins >= character.price) && !this.isCharacterOwned(character);
   }
 
   getRarityColor(rarity: string): string {
