@@ -37,6 +37,7 @@ export class PongComponent {
     const token = this.auth.getAccessToken();
     let racketStatsParam = '';
     let racketVisualParam = '';
+    let characterParam = '';
     
     try {
       // Get user's equipped racket stats
@@ -57,11 +58,20 @@ export class PongComponent {
         const racketVisual = await this.buildRacketVisual(equippedRacket);
         racketVisualParam = `&racket=${encodeURIComponent(JSON.stringify(racketVisual))}`;
       }
+
+      // Get user's equipped character
+      const user = await this.userService.getProfile().toPromise();
+      if (user?.activeLoadout?.character) {
+        const characterData = {
+          id: user.activeLoadout.character
+        };
+        characterParam = `&character=${encodeURIComponent(JSON.stringify(characterData))}`;
+      }
     } catch (error) {
       console.warn('Failed to load racket stats for game:', error);
     }
     
-    this.url = `${environment.gameUrl}/?token=${encodeURIComponent(token || '')}&api=${encodeURIComponent(environment.apiUrl.replace('/api',''))}${racketStatsParam}${racketVisualParam}`;
+    this.url = `${environment.gameUrl}/?token=${encodeURIComponent(token || '')}&api=${encodeURIComponent(environment.apiUrl.replace('/api',''))}${racketStatsParam}${racketVisualParam}${characterParam}`;
   }
   
   private async buildRacketVisual(equippedRacket: any): Promise<any> {

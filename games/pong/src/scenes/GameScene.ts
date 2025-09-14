@@ -75,7 +75,7 @@ export class GameScene extends Phaser.Scene {
     const hasValidToken = this.token && this.token.length > 50;
     this.isTrainingMode = isPracticeMode || !hasValidToken;
 
-    // Assets
+    // Load racket assets
     this.load.image('starter-racket', '/assets/rackets/starter-racket.png');
 
     const racketData = params.get('racket');
@@ -87,6 +87,23 @@ export class GameScene extends Phaser.Scene {
         }
       } catch (e) {
         console.warn('Failed to parse racket data:', e);
+      }
+    }
+
+    // Load character assets
+    this.load.image('amara', '/assets/players/amara.png');
+    this.load.image('south-park', '/assets/players/south-park.png');
+
+    // Load equipped character from URL params
+    const characterData = params.get('character');
+    if (characterData) {
+      try {
+        const character = JSON.parse(decodeURIComponent(characterData));
+        if (character.id) {
+          this.load.image('character_my', `/assets/players/${character.id}.png`);
+        }
+      } catch (e) {
+        console.warn('Failed to parse character data:', e);
       }
     }
   }
@@ -416,40 +433,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlayerSprite(x: number, y: number, isMe: boolean): Phaser.GameObjects.Image | Phaser.GameObjects.Circle {
-    // Try to load character image first
     let characterKey = '';
     
     if (isMe) {
-      // Check for custom character from URL params
-      const params = new URLSearchParams(window.location.search);
-      const characterData = params.get('character');
-      if (characterData) {
-        try {
-          const character = JSON.parse(decodeURIComponent(characterData));
-          characterKey = character.id || '';
-        } catch (e) {
-          console.warn('Failed to parse character data:', e);
-        }
-      }
-      
-      // Default to amara if no character specified
-      if (!characterKey) {
-        characterKey = 'amara';
+      // Try equipped character first
+      if (this.textures.exists('character_my')) {
+        characterKey = 'character_my';
+      } else {
+        characterKey = 'amara'; // Default
       }
     } else {
-      // Opponent gets south-park by default
       characterKey = 'south-park';
     }
     
-    // Try to create image sprite
-    if (characterKey && this.textures.exists(characterKey)) {
+    if (this.textures.exists(characterKey)) {
       const sprite = this.add.image(x, y, characterKey);
-      sprite.setScale(0.15); // Adjust size as needed
+      sprite.setScale(0.12);
       sprite.setDepth(1);
       return sprite;
     }
     
-    // Fallback to circle
+    // Fallback
     const color = isMe ? 0x111111 : 0x222244;
     return this.add.circle(x, y, 20, color);
   }

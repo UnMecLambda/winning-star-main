@@ -183,7 +183,8 @@
           </div>
           
           <div class="character-visual">
-            <img [src]="character.imagePath" [alt]="character.name" class="character-image">
+            <img [src]="'/assets/players/' + character.id + '.png'" [alt]="character.name" class="character-image" 
+                 (error)="$event.target.src='/assets/avatars/default.png'">
           </div>
 
           <p class="character-description">{{ character.description }}</p>
@@ -231,13 +232,21 @@
             <div class="price free" *ngIf="character.price === 0">FREE</div>
             <button 
               class="btn btn-primary"
+              *ngIf="!isCharacterOwned(character)"
               [disabled]="!canPurchaseCharacter(character)"
               (click)="purchaseCharacter(character)"
             >
               <lucide-icon name="shopping-cart"></lucide-icon>
-              <span *ngIf="!isCharacterOwned(character) && character.price === 0">Get Free</span>
-              <span *ngIf="!isCharacterOwned(character) && character.price > 0">Buy</span>
-              <span *ngIf="isCharacterOwned(character)">Owned</span>
+              <span *ngIf="character.price === 0">Get Free</span>
+              <span *ngIf="character.price > 0">Buy</span>
+            </button>
+            <button 
+              class="btn btn-success"
+              *ngIf="isCharacterOwned(character)"
+              (click)="equipCharacter(character)"
+            >
+              <lucide-icon name="user"></lucide-icon>
+              Equip
             </button>
           </div>
         </div>
@@ -254,13 +263,15 @@
             </div>
             
             <div class="character-visual">
-              <img [src]="character.imagePath" [alt]="character.name" class="character-image">
+              <img [src]="'/assets/players/' + character.id + '.png'" [alt]="character.name" class="character-image"
+                   (error)="$event.target.src='/assets/avatars/default.png'">
             </div>
 
             <button 
               class="btn btn-primary btn-small"
               (click)="equipCharacter(character)"
             >
+              <lucide-icon name="user"></lucide-icon>
               Equip
             </button>
           </div>
