@@ -2,25 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>iBet • Pong</title>
     <style>
       html,body,#app{height:100%;margin:0;background:#0d0f14;color:#fff;font-family:Inter,system-ui,Arial}
-      #hud{position:fixed;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;z-index:2}
-      .btn{background:#222;border:1px solid #444;border-radius:10px;padding:8px 12px;cursor:pointer}
+      #hud{
+        position:fixed;top:8px;left:8px;right:8px;
+        display:flex;justify-content:space-between;align-items:center;z-index:10
+      }
       .tag{opacity:.8}
+      #hud-right{display:flex;gap:8px}
+      .btn{
+        background:#222;border:1px solid #444;border-radius:10px;
+        padding:8px 12px;cursor:pointer;color:#fff
+      }
+      .btn:active{transform:translateY(1px)}
       canvas{touch-action:none}
     </style>
   </head>
   <body>
     <div id="hud">
       <div class="tag">iBet • Pong</div>
-      <div>
+      <div id="hud-right">
         <button id="queueBtn" class="btn">Find Match</button>
         <button id="practiceBtn" class="btn">Training</button>
+        <button id="homeBtn" class="btn">Home</button>
       </div>
     </div>
+
     <div id="app"></div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

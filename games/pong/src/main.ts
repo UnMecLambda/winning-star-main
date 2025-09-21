@@ -16,23 +16,60 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [new BootScene(), new GameScene(token)]
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
 
-// UI bindings
-const q = document.getElementById('queueBtn')!;
-const p = document.getElementById('practiceBtn')!;
+/** Nettoyage propre (scènes, timers, sockets…) */
+function cleanupPong() {
+  try {
+    // détruire les scènes si elles exposent destroy()
+    game.scene.getScenes(true).forEach((s: any) => {
+      if (typeof s.destroy === 'function') s.destroy();
+      else if (s.scene?.key) game.scene.stop(s.scene.key);
+    });
+    // optionnel: tuer complètement le jeu pour éviter toute recréation
+    // (décommente si utile) :
+    // game.destroy(true);
+  } catch { /* ignore */ }
+}
+window.addEventListener('beforeunload', cleanupPong);
+window.addEventListener('pagehide', cleanupPong);
+window.addEventListener('pong:cleanup', cleanupPong);
 
-q.addEventListener('click', () => {
-  // Reload with matchmaking mode
-  const url = new URL(window.location.href);
-  url.searchParams.delete('practice');
-  url.searchParams.delete('mode');
-  window.location.href = url.toString();
-});
+/** Bind UI (Find Match / Training / Home) — une seule fois */
+const BOUND_FLAG = '__pong_ui_bound__';
+if (!(window as any)[BOUND_FLAG]) {
+  (window as any)[BOUND_FLAG] = true;
 
-p.addEventListener('click', () => {
-  // Reload with practice mode
-  const url = new URL(window.location.href);
-  url.searchParams.set('practice', 'true');
-  window.location.href = url.toString();
-});
+  const queueBtn = document.getElementById('queueBtn');
+  const practiceBtn = document.getElementById('practiceBtn');
+  const homeBtn = document.getElementById('homeBtn');
+
+  queueBtn?.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('practice');
+    url.searchParams.delete('mode');
+    window.location.href = url.toString();
+  });
+
+  practiceBtn?.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('practice', 'true');
+    window.location.href = url.toString();
+  });
+
+  homeBtn?.addEventListener('click', () => {
+    if (!confirm('Quitter la partie et revenir à l’accueil ?')) return;
+
+    // 1) nettoyer phaser/sockets
+    cleanupPong();
+
+    // 2) rediriger le top window (utile si le jeu est dans un iframe)
+    const target = new URL('/play', window.location.origin).toString();
+    try {
+      if (window.top) (window.top as Window).location.assign(target);
+      else window.location.assign(target);
+    } catch {
+      window.location.assign(target);
+    }
+  });
+}

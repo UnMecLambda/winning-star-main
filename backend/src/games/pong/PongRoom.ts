@@ -38,11 +38,14 @@ export class PongRoom {
   private serverSide: PlayerSide = 'bottom';
   private serving = true;
 
+  // ✅ Manche gagnée au premier à 5
+  private readonly POINTS_TO_WIN = 5;
+
   constructor(io: Server, gameId: string, pBottom: Socket, pTop: Socket) {
     this.io = io;
     this.gameId = gameId;
 
-    // ✅ bornes du court (correctes, comme côté client)
+    // bornes du court
     this.BOUNDS.left   = this.width/2 - this.courtW/2 + 10;
     this.BOUNDS.right  = this.width/2 + this.courtW/2 - 10;
     this.BOUNDS.top    = this.courtY + 10;
@@ -157,6 +160,13 @@ export class PongRoom {
 
   private point(winner: PlayerSide){
     this.players[winner].score += 1;
+
+    // 🔚 Fin immédiate quand un joueur atteint 5
+    if (this.players[winner].score >= this.POINTS_TO_WIN) {
+      this.broadcastState();      // pousse le score final aux clients
+      this.end(winner);           // envoie 'game_ended' { reason: 'bottom' | 'top' }
+      return;
+    }
 
     // alterner le service
     this.serverSide = (this.serverSide === 'bottom') ? 'top' : 'bottom';

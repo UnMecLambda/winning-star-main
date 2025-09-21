@@ -53,9 +53,6 @@ export class GameScene extends Phaser.Scene {
   private scoreBottom = 0;
   private scoreText!: Phaser.GameObjects.Text;
 
-  // (la grosse fury bar latérale est retirée)
-  // private furyBar!: Phaser.GameObjects.Rectangle;
-
   private mySide: PlayerSide = 'bottom';
   private serverSide: PlayerSide = 'bottom';
   private serving = true;
@@ -116,10 +113,17 @@ export class GameScene extends Phaser.Scene {
   create(){
     const w = this.scale.width, h = this.scale.height;
 
-    const margin = 60;
-    const courtW = w - margin*2;
-    const courtH = h - 260;
-    const courtY = 100;
+        // --- Layout responsive : terrain occupe la place dispo, surtout en mobile
+    const isPortrait = this.scale.height > this.scale.width;
+    const hudTop = 10 + (isPortrait ? 56 : 48) + 12;   // score + marge
+    const margin = isPortrait ? 12 : 24;
+
+    const courtW = this.scale.width - margin * 2;
+    // ratio hauteur/largeur du court pour l'affichage (plus long que large)
+    const targetRatio = 1.6; // ajuste si tu veux (1.6 à 1.8 donne bien)
+    const maxCourtH = this.scale.height - hudTop - 20;
+    const courtH = Math.min(maxCourtH, courtW * targetRatio);
+    const courtY = hudTop + (maxCourtH - courtH) / 2;
 
     this.courtBounds = {
       left: w/2 - courtW/2 + 10,
@@ -169,14 +173,28 @@ export class GameScene extends Phaser.Scene {
     this.myFuryMini  = this.add.rectangle(this.me.x - 26,  this.me.y, 6, 0, 0x000000).setOrigin(0.5,1).setDepth(2.2);
     this.oppFuryMini = this.add.rectangle(this.opp.x - 26, this.opp.y, 6, 0, 0x000000).setOrigin(0.5,0).setDepth(2.2);
 
-    // HUD
-    this.scoreText = this.add.text(w/2, 24, '0 : 0', {
-      fontFamily: 'Arial', fontSize: '28px', color: '#fff'
-    }).setOrigin(0.5,0);
+    // --- HUD (score) ------------------------------------------------------------
+    const isMobile = this.scale.width < 640 || this.scale.height > this.scale.width;
+    const scorePanelH = isMobile ? 56 : 48;
+    const scorePanelW = isMobile ? 200 : 180;
+
+    const scoreBg = this.add.rectangle(this.scale.width/2, 10, scorePanelW, scorePanelH, 0x000000, 0.55)
+      .setOrigin(0.5, 0)
+      .setDepth(1000)
+      .setStrokeStyle(2, 0xffffff, 0.15);
+
+    this.scoreText = this.add.text(this.scale.width/2, 10 + scorePanelH/2, '0 : 0', {
+      fontFamily: 'Arial',
+      fontSize: isMobile ? '32px' : '30px',
+      color: '#fff',
+      stroke: '#000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(1001);
+
 
     // Inputs + menu
     this.setupInputHandlers();
-    this.createMenuButton();
+    // this.createMenuButton();
 
     // Mode
     if (this.isTrainingMode || !this.token) {
@@ -236,7 +254,6 @@ export class GameScene extends Phaser.Scene {
     this.scoreTop = 0;
     this.scoreBottom = 0;
 
-    // init mini fury (ex: 50%)
     this.updateMiniFury(this.myFuryMini, 50, 'bottom');
     this.updateMiniFury(this.oppFuryMini, 50, 'top');
 
@@ -324,8 +341,8 @@ export class GameScene extends Phaser.Scene {
     // Collisions via hit lines
     this.checkHitLineCollisions();
 
-    // UI
-    this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+    // ✅ Affiche mon score à gauche en training (je suis bottom)
+    this.scoreText.setText(`${this.scoreBottom} : ${this.scoreTop}`);
 
     // sync affichage
     this.syncAllVisuals();
@@ -406,7 +423,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = -16; i <= -2; i += 4) container.add(this.add.line(0, -8, -6, i, 6, i, 0xffffff).setLineWidth(1));
     const grip = this.add.rectangle(0, 12, 5, 9, 0x333333);
     container.add([head, handle, grip]);
-    container.setScale(0.36); // déjà petite
+    container.setScale(0.36);
     container.setDepth(3);
     return container;
   }
@@ -439,11 +456,11 @@ export class GameScene extends Phaser.Scene {
     this.positionRacketNextToPlayer(this.myRacket, this.me.x,  this.me.y,  'bottom', this.myHandedness);
     this.positionRacketNextToPlayer(this.oppRacket, this.opp.x, this.opp.y, 'top',    this.oppHandedness);
 
-    // hit lines (au-dessus du joueur du bas, au-dessous du joueur du haut)
+    // hit lines
     if (this.myHitLine)  this.myHitLine.setPosition(this.me.x,  this.me.y - 36);
     if (this.oppHitLine) this.oppHitLine.setPosition(this.opp.x, this.opp.y + 36);
 
-    // mini fury bars (à gauche des persos)
+    // mini fury bars
     if (this.myFuryMini)  this.myFuryMini.setPosition(this.me.x - 26,  this.me.y);
     if (this.oppFuryMini) this.oppFuryMini.setPosition(this.opp.x - 26, this.opp.y);
   }
@@ -453,40 +470,72 @@ export class GameScene extends Phaser.Scene {
     px: number, py: number, side: PlayerSide, handed: Handed
   ) {
     if (!racket) return;
-    // décalage latéral par rapport au perso (petite raquette)
     const lateral = handed === 'right' ? +42 : -42;
     const vertical = side === 'bottom' ? -4 : +4;
     racket.setPosition(px + lateral, py + vertical);
 
-    // légère rotation agréable
     if (side === 'bottom') racket.setRotation(handed === 'right' ? -0.15 : 0.15);
     else racket.setRotation(handed === 'right' ? 0.15 : -0.15);
   }
 
-  private createMenuButton() {
-    const w = this.scale.width;
-    const menuBtn = this.add.rectangle(w - 60, 30, 100, 40, 0x333333)
-      .setStrokeStyle(2, 0x666666)
-      .setInteractive()
-      .on('pointerdown', () => { window.location.href = window.location.origin + '/play'; })
-      .on('pointerover', () => menuBtn.setFillStyle(0x555555))
-      .on('pointerout',  () => menuBtn.setFillStyle(0x333333));
-    this.add.text(w - 60, 30, 'Home', { fontFamily: 'Arial', fontSize: '16px', color: '#fff' }).setOrigin(0.5);
+private createMenuButton() {
+  const w = this.scale.width;
 
-    const trainingBtn = this.add.rectangle(w - 180, 30, 100, 40, 0x2d5a27)
-      .setStrokeStyle(2, 0x4a7c59).setInteractive()
-      .on('pointerdown', () => { window.location.href = '/pong?practice=true'; })
-      .on('pointerover', () => trainingBtn.setFillStyle(0x4a7c59))
-      .on('pointerout',  () => trainingBtn.setFillStyle(0x2d5a27));
-    this.add.text(w - 180, 30, 'Practice', { fontFamily: 'Arial', fontSize: '14px', color: '#fff' }).setOrigin(0.5);
+  const y = 6;           // plus haut si tu veux (0..10)
+  const btnW = 92;
+  const btnH = 30;
+  const padRight = 10;   // marge droite
 
-    const multiBtn = this.add.rectangle(w - 300, 30, 100, 40, 0x667eea)
-      .setStrokeStyle(2, 0x764ba2).setInteractive()
-      .on('pointerdown', () => { window.location.href = '/pong'; })
-      .on('pointerover', () => multiBtn.setFillStyle(0x764ba2))
-      .on('pointerout',  () => multiBtn.setFillStyle(0x667eea));
-    this.add.text(w - 300, 30, 'Multiplayer', { fontFamily: 'Arial', fontSize: '14px', color: '#fff' }).setOrigin(0.5);
+  // fond du bouton
+  const btn = this.add.rectangle(w - padRight, y, btnW, btnH, 0x333333, 0.95)
+    .setOrigin(1, 0)     // ancré en haut-droite
+    .setDepth(3000)
+    .setStrokeStyle(2, 0xffffff, 0.15)
+    .setInteractive()
+    .on('pointerdown', () => this.quitToHome())
+    .on('pointerover', () => btn.setFillStyle(0x4a4a4a, 0.95))
+    .on('pointerout',  () => btn.setFillStyle(0x333333, 0.95));
+
+  // label
+  this.add.text(w - padRight - btnW / 2, y + btnH / 2, 'Home', {
+    fontFamily: 'Arial',
+    fontSize: '13px',
+    color: '#fff',
+    stroke: '#000',
+    strokeThickness: 3
+  }).setOrigin(0.5).setDepth(3001);
+
+  // bonus: touche Échap pour quitter
+  this.input.keyboard?.on('keydown-ESC', () => this.quitToHome());
+}
+
+private quitToHome() {
+  const ok = window.confirm('Quitter la partie et revenir à l’accueil ?');
+  if (!ok) return;
+
+  // stop training loop s’il existe
+  if (this.trainingLoop) {
+    this.trainingLoop.remove(false);
+    this.trainingLoop = undefined;
   }
+
+  // retirer les handlers d’input pour éviter les fuites
+  this.input.removeAllListeners();
+
+  // fermer le socket si ouvert
+  try {
+    (this.socket as any)?.disconnect?.();
+    (this.socket as any)?.close?.();
+  } catch {}
+
+  // optionnel: arrêter la scène
+  this.scene.stop();
+
+  // redirection vers ton front (change si nécessaire)
+  window.location.href = window.location.origin + '/play';
+}
+
+
 
   // Multiplayer socket methods
   private bindSocket(){
@@ -504,6 +553,14 @@ export class GameScene extends Phaser.Scene {
 
     (this.socket as any)['socket'].on('pong_state', (state:any)=> { this.applyState(state); });
     (this.socket as any)['socket'].on('game_started', ()=> { this.showToast('Game started!', 800); });
+
+    // ✅ Fin de partie (le back émet quand un joueur atteint 5)
+    (this.socket as any)['socket'].on('game_ended', (data:any)=> {
+      const iWon = data?.reason === this.mySide;
+      this.showToast(iWon ? 'You win!' : 'You lose!', 2500);
+      // option: désactiver les inputs
+      // this.input.removeAllListeners();
+    });
 
     this.socket.findMatch('pong');
   }
@@ -548,7 +605,10 @@ export class GameScene extends Phaser.Scene {
       this.scoreTop    = s.players.bottom?.score || 0;
     }
 
-    this.scoreText.setText(`${this.scoreTop} : ${this.scoreBottom}`);
+    // ✅ Toujours afficher MON score à gauche
+    const myScore  = this.mySide === 'bottom' ? this.scoreBottom : this.scoreTop;
+    const oppScore = this.mySide === 'bottom' ? this.scoreTop    : this.scoreBottom;
+    this.scoreText.setText(`${myScore} : ${oppScore}`);
 
     this.syncAllVisuals();
 
@@ -565,7 +625,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateMiniFury(bar: Phaser.GameObjects.Rectangle, fury: number, side: PlayerSide) {
     const clamped = Phaser.Math.Clamp(fury, 0, 100) / 100;
-    const maxH = 40; // hauteur max de la mini barre
+    const maxH = 40;
     const h = maxH * clamped;
 
     if (side === 'bottom') {
@@ -602,6 +662,5 @@ export class GameScene extends Phaser.Scene {
 
   destroy() {
     if (this.trainingLoop) this.trainingLoop.destroy();
-    // super.destroy(); // Phaser.Scene n'a pas destroy
   }
 }
