@@ -1,38 +1,92 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>iBet • Pong</title>
     <style>
-      html,body,#app{height:100%;margin:0;background:#0d0f14;color:#fff;font-family:Inter,system-ui,Arial}
-      #hud{
-        position:fixed;top:8px;left:8px;right:8px;
-        display:flex;justify-content:space-between;align-items:center;z-index:10
+      html, body, #app { height: 100%; margin: 0; background: #0d0f14; color: #fff; font-family: Inter, system-ui, Arial }
+      #hud {
+        position: fixed; top: 8px; left: 8px; right: 8px;
+        display: flex; justify-content: space-between; align-items: center; z-index: 10;
       }
-      .tag{opacity:.8}
-      #hud-right{display:flex;gap:8px}
-      .btn{
-        background:#222;border:1px solid #444;border-radius:10px;
-        padding:8px 12px;cursor:pointer;color:#fff
+      .btn {
+        background: #222; border: 1px solid #444; border-radius: 10px;
+        padding: 8px 12px; cursor: pointer; color: #fff; text-decoration: none;
       }
-      .btn:active{transform:translateY(1px)}
-      canvas{touch-action:none}
+      .btn:active { transform: translateY(1px) }
+      .tag { opacity: .8 }
+      #hud-right { display: flex; gap: 8px }
+      canvas { touch-action: none }
     </style>
   </head>
   <body>
+    <!-- HUD -->
     <div id="hud">
       <div class="tag">iBet • Pong</div>
       <div id="hud-right">
         <button id="queueBtn" class="btn">Find Match</button>
         <button id="practiceBtn" class="btn">Training</button>
-        <button id="homeBtn" class="btn">Home</button>
+        <!-- IMPORTANT: vrai lien, target=_top pour sortir d’un éventuel iframe -->
+        <a id="homeBtn" class="btn" href="#" target="_top" rel="noopener">Home</a>
       </div>
     </div>
 
+    <!-- Canvas Phaser -->
     <div id="app"></div>
 
+    <!-- Bundle Phaser -->
     <script type="module" src="/src/main.ts"></script>
+
+    <!-- Contrôles HUD -->
+    <script>
+      // Conserve ?return= si fourni (utile en prod pour renvoyer vers une URL précise)
+      const params = new URLSearchParams(window.location.search);
+      const returnParam = params.get('return');
+
+      const queueBtn = document.getElementById('queueBtn');
+      const practiceBtn = document.getElementById('practiceBtn');
+      const homeBtn = document.getElementById('homeBtn');
+
+      queueBtn?.addEventListener('click', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('practice');
+        if (returnParam) url.searchParams.set('return', returnParam);
+        window.location.href = url.toString();
+      });
+
+      practiceBtn?.addEventListener('click', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('practice', 'true');
+        if (returnParam) url.searchParams.set('return', returnParam);
+        window.location.href = url.toString();
+      });
+
+      // Détermine l’URL Home (TOP navigation)
+      let TARGET_HOME = new URL('/home', window.location.origin).toString();
+      if (returnParam) {
+        try { TARGET_HOME = new URL(returnParam).toString(); } catch {}
+      } else if (document.referrer) {
+        try {
+          const ref = new URL(document.referrer);
+          if (ref.origin !== window.location.origin) {
+            TARGET_HOME = new URL('/home', ref.origin).toString();
+          }
+        } catch {}
+      }
+      homeBtn.setAttribute('href', TARGET_HOME);
+
+      // Confirmation SANS empêcher la navigation du lien → le navigateur fait une vraie navigation
+      homeBtn.addEventListener('click', (e) => {
+        if (!confirm('Quitter la partie et revenir à l’accueil ?')) {
+          e.preventDefault();
+        }
+      });
+
+      // Laisse le navigateur déclencher 'beforeunload' → la scène pourra se nettoyer
+    </script>
   </body>
 </html>
