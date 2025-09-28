@@ -1,15 +1,23 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
 export interface IUser extends Document {
-  _id: Types.ObjectId; // ✅ important pour que TS reconnaisse _id
+  _id: Types.ObjectId;
   email: string;
   username: string;
   password: string;
   coins: number;
   level: number;
   experience: number;
+
+  // === Manager economy (ajouts) ===
+  team?: Types.ObjectId;
+  lastEarnAt?: Date;
+  earnWindow?: {
+    windowStart: Date;
+    amount: number;
+  };
+
   avatar: string;
-  isHandedness: 'left' | 'right';
   stats: {
     gamesPlayed: number;
     gamesWon: number;
@@ -69,6 +77,7 @@ const userSchema = new Schema<IUser>(
       required: true,
       minlength: 6,
     },
+
     coins: {
       type: Number,
       default: 1000,
@@ -84,15 +93,20 @@ const userSchema = new Schema<IUser>(
       default: 0,
       min: 0,
     },
+
+    // === Manager economy (ajouts) ===
+    team: { type: Schema.Types.ObjectId, ref: 'Team' },
+    lastEarnAt: { type: Date },
+    earnWindow: {
+      windowStart: { type: Date },
+      amount: { type: Number, default: 0 },
+    },
+
     avatar: {
       type: String,
       default: 'default-avatar.png',
     },
-    isHandedness: {
-      type: String,
-      enum: ['left', 'right'],
-      default: 'right',
-    },
+
     stats: {
       gamesPlayed: { type: Number, default: 0 },
       gamesWon: { type: Number, default: 0 },
@@ -100,28 +114,33 @@ const userSchema = new Schema<IUser>(
       winStreak: { type: Number, default: 0 },
       bestWinStreak: { type: Number, default: 0 },
     },
+
     inventory: {
       rackets: [{ type: String }],
       skins: [{ type: String }],
       characters: [{ type: String }],
       equipment: [{ type: String }],
     },
+
     activeLoadout: {
       racket: { type: String },
       character: { type: String },
       skin: { type: String },
       equipment: [{ type: String }],
     },
+
     preferences: {
       notifications: { type: Boolean, default: true },
       soundEnabled: { type: Boolean, default: true },
       musicEnabled: { type: Boolean, default: true },
     },
+
     kycStatus: {
       type: String,
       enum: ['none', 'pending', 'verified', 'rejected'],
       default: 'none',
     },
+
     withdrawalLimits: {
       daily: { type: Number, default: 100 },
       monthly: { type: Number, default: 500 },
@@ -129,6 +148,7 @@ const userSchema = new Schema<IUser>(
       monthlyUsed: { type: Number, default: 0 },
       lastReset: { type: Date, default: Date.now },
     },
+
     lastLogin: { type: Date, default: Date.now },
   },
   {
@@ -136,10 +156,8 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Indexes for performance
-// userSchema.index({ email: 1 });
-// userSchema.index({ username: 1 });
-userSchema.index({ 'stats.totalScore': -1 }); // Leaderboard
-userSchema.index({ level: -1, experience: -1 }); // Level ranking
+// Indexes pour perfs
+userSchema.index({ 'stats.totalScore': -1 }); // leaderboard
+userSchema.index({ level: -1, experience: -1 }); // classement niveau
 
 export const User = mongoose.model<IUser>('User', userSchema);

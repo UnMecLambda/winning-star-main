@@ -17,13 +17,12 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res) => {
 // Update user profile
 router.put('/profile', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const { username, avatar, preferences, isHandedness } = req.body;
+    const { username, avatar, preferences,  } = req.body;
     
     const updateData: any = {};
     if (username) updateData.username = username;
     if (avatar) updateData.avatar = avatar;
     if (preferences) updateData.preferences = preferences;
-    if (isHandedness) updateData.isHandedness = isHandedness;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,

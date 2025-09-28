@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import { mountManager } from './mountManager';
+
 
 // Charge toujours le .env situé dans backend/.env
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -63,6 +65,10 @@ app.use(limiter);
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Manager module (REST)
+mountManager(app);
+
 
 // Routes
 app.use('/api/auth', authRoutes);

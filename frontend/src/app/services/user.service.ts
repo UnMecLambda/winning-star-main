@@ -11,7 +11,6 @@ export interface User {
   level: number;
   experience: number;
   avatar: string;
-  isHandedness: 'left' | 'right';
   stats: {
     gamesPlayed: number;
     gamesWon: number;

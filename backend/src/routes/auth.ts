@@ -58,7 +58,6 @@ router.post('/register', validateRequest(registerSchema), async (req, res) => {
       email,
       username,
       password: hashedPassword,
-      isHandedness: handedness,
       // Give starter items
       inventory: {
         rackets: ['starter-racket'],
