@@ -3,7 +3,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import { Player } from './models/Player';
 
-const MONGO = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ibet';
+const MONGO = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/winning-star';
 
 type Pos = 'PG'|'SG'|'SF'|'PF'|'C';
 
