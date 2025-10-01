@@ -1,0 +1,9 @@
+<div class="toolbar">
+  <button (click)="start('easy')">IA Easy</button>
+  <button (click)="start('normal')">IA Normal</button>
+  <button (click)="start('hard')">IA Hard</button>
+  <button (click)="start('legend')">IA Legend</button>
+  <span class="score">{{scoreHome}} - {{scoreAway}}</span>
+</div>
+
+<canvas #court width="600" height="360"></canvas>

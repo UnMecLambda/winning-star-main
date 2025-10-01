@@ -9,6 +9,7 @@ import managerEconomy from './manager/routes/economy';
 import friendlyRouter from './manager/routes/friendly';
 import matchmakingRouter from './manager/routes/matchmaking';
 import seasonRouter from './manager/routes/season';
+import aiRouter from './manager/routes/ai';
 
 /**
  * Monte les routes Manager sous /api/manager/*
@@ -25,5 +26,6 @@ export function mountManager(app: Express) {
   app.use('/api/manager/matchmaking', matchmakingRouter);
   app.use('/api/manager/season', seasonRouter);
   app.use('/api/manager/season', seasonRouter);
+  app.use('/api/manager/ai', aiRouter);
 }
 

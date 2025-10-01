@@ -22,8 +22,8 @@
           </div>
         </div>
         <div class="game-actions">
-          <button 
-            class="btn btn-primary btn-large" 
+          <button
+            class="btn btn-primary btn-large"
             (click)="findMatch('pong')"
             [disabled]="isSearching"
           >
@@ -31,13 +31,42 @@
             <lucide-icon name="clock" *ngIf="isSearching"></lucide-icon>
             {{ isSearching ? 'Searching...' : 'Find Match' }}
           </button>
-          <button 
-            class="btn btn-outline" 
+          <button
+            class="btn btn-outline"
             (click)="playPong()"
           >
             <lucide-icon name="play"></lucide-icon>
             Practice
           </button>
+        </div>
+      </div>
+
+      <!-- Basketball Manager -->
+      <div class="game-card">
+        <div class="game-icon">
+          🏀
+        </div>
+        <div class="game-info">
+          <h3>Basket Manager</h3>
+          <p>Build your roster, set tactics and watch live simulations</p>
+          <div class="game-stats">
+            <div class="stat">
+              <lucide-icon name="settings-2"></lucide-icon>
+              <span>AI & Friendly modes</span>
+            </div>
+          </div>
+        </div>
+        <div class="game-actions">
+          <!-- Live viewer vs AI (ouvre l'écran de visu) -->
+          <a class="btn btn-primary btn-large" routerLink="/manager/viewer">
+            <lucide-icon name="play"></lucide-icon>
+            Test vs AI (Live)
+          </a>
+          <!-- Lien gestion d’équipe (à brancher plus tard si tu crées la page) -->
+          <a class="btn btn-outline" routerLink="/manager/team" *ngIf="false">
+            <lucide-icon name="users"></lucide-icon>
+            Manage Team
+          </a>
         </div>
       </div>
 
