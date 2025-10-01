@@ -59,10 +59,11 @@ const routes: Routes = [
   },
 
   // 👇 Basket Manager (lazy)
-  {
-    path: 'manager',
-    loadChildren: () => import('./manager/manager.module').then(m => m.ManagerModule),
-  },
+  // {
+  //   path: 'manager',
+  //   loadChildren: () => import('./manager/manager.module').then(m => m.ManagerModule),
+  //   canActivate: [AuthGuard]
+  // },
 
   { path: '**', redirectTo: '/home' }
 ];
