@@ -4,6 +4,7 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import Joi from 'joi';
 import { User } from '../models/User';
 import { validateRequest } from '../middleware/validation';
+import { createDefaultTeamForUser } from '../manager/services/autoTeam'; // 👈 NEW
 
 const router = express.Router();
 
@@ -16,49 +17,45 @@ function getEnvVar(key: string): string {
   return value;
 }
 
-const JWT_SECRET = getEnvVar("JWT_SECRET");
-const JWT_REFRESH_SECRET = getEnvVar("JWT_REFRESH_SECRET");
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
-const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
+const JWT_SECRET = getEnvVar('JWT_SECRET');
+const JWT_REFRESH_SECRET = getEnvVar('JWT_REFRESH_SECRET');
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
+const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 // Validation schemas
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   username: Joi.string().alphanum().min(3).max(20).required(),
   password: Joi.string().min(6).required(),
-  handedness: Joi.string().valid('left', 'right').default('right')
 });
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required()
+  password: Joi.string().required(),
 });
 
 // Register
 router.post('/register', validateRequest(registerSchema), async (req, res) => {
   try {
-    const { email, username, password, handedness } = req.body;
+    const { email, username, password } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({
       $or: [{ email }, { username }]
     });
-
     if (existingUser) {
-      return res.status(400).json({
-        error: 'User already exists with this email or username'
-      });
+      return res.status(400).json({ error: 'User already exists with this email or username' });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
-    const user = new User({
+    // Create user (avec 2000 coins de départ)
+    const user = await User.create({
       email,
       username,
       password: hashedPassword,
-      // Give starter items
+      coins: 2000,
       inventory: {
         rackets: ['starter-racket'],
         characters: ['default-character'],
@@ -72,7 +69,13 @@ router.post('/register', validateRequest(registerSchema), async (req, res) => {
       }
     });
 
-    await user.save();
+    // 👇 crée automatiquement une Team avec 5 joueurs (1 par poste)
+    try {
+      await createDefaultTeamForUser(user._id);
+    } catch (e) {
+      console.error('[register] failed to create default team', e);
+      // on n'échoue pas l’inscription pour ça
+    }
 
     // Generate tokens
     const accessToken = jwt.sign(

@@ -23,7 +23,6 @@ export class RegisterComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(20)]],
       password: ['', [Validators.required, Validators.minLength(6)]],
-      handedness: ['right', [Validators.required]]
     });
   }
 

@@ -1,14 +1,29 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../../middleware/auth';
-import { User } from '../../models/User';
+import { Team } from '../models/Team';
 
 const router = Router();
 
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+/**
+ * GET /api/manager/me/team
+ * Retourne la team de l'utilisateur + starters + roster peuplés avec les joueurs
+ */
+router.get('/team', authenticate, async (req: AuthRequest, res) => {
   const userId = (req.user as any)._id;
-  const me = await User.findById(userId)
-    .populate({ path: 'team', populate: ['roster', 'starters'] });
-  res.json(me);
+
+  const team = await Team.findOne({ owner: userId })
+    .populate({
+      path: 'roster',
+      select: 'name position ratingOff ratingDef ratingReb speed pass dribble threePt stamina age potential price'
+    })
+    .populate({
+      path: 'starters',
+      select: 'name position ratingOff ratingDef ratingReb speed pass dribble threePt stamina age potential price'
+    });
+
+  if (!team) return res.status(404).json({ error: 'Team not found' });
+
+  res.json({ ok: true, team });
 });
 
 export default router;
