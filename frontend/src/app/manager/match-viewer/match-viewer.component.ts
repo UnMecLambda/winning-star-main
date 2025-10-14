@@ -23,16 +23,15 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
   private subP?: Subscription;
   private subE?: Subscription;
 
-  // match state
   scoreHome = 0;
   scoreAway = 0;
   inLive = false;
 
-  // team state
   loadingTeam = true;
   team?: { _id: string; name: string; starters: PlayerVm[]; roster: PlayerVm[]; };
   starters: PlayerVm[] = [];
   roster: PlayerVm[] = [];
+  picking: Set<string> = new Set();
 
   constructor(
     private svc: ManagerMatchService,
@@ -52,16 +51,13 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
 
     this.loadTeam();
   }
-
   ngOnDestroy() { this.subP?.unsubscribe(); this.subE?.unsubscribe(); }
 
-  /* ===== helpers ===== */
   ovr(p: PlayerVm): number {
     const v = p.ratingOff*0.35 + p.ratingDef*0.25 + p.ratingReb*0.15 + p.threePt*0.10 + p.dribble*0.075 + p.pass*0.075;
     return Math.round(v);
   }
 
-  /* ===== data ===== */
   loadTeam() {
     this.loadingTeam = true;
     this.teamApi.getMyTeam().subscribe({
@@ -69,13 +65,41 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
         this.team = r.team;
         this.starters = (r.team?.starters ?? []) as PlayerVm[];
         this.roster = (r.team?.roster ?? []) as PlayerVm[];
+        this.picking = new Set(this.starters.map(s => s._id));
         this.loadingTeam = false;
       },
-      error: () => { this.loadingTeam = false; }
+      error: (err) => {
+        this.loadingTeam = false;
+        if (err?.status === 404) this.team = undefined; // pas de team encore
+      }
     });
   }
 
-  /* ===== actions ===== */
+  createTeam() {
+    this.loadingTeam = true;
+    this.teamApi.createDefaultTeam().subscribe({
+      next: () => this.loadTeam(),
+      error: () => this.loadingTeam = false
+    });
+  }
+
+  togglePick(id: string) {
+    if (this.picking.has(id)) this.picking.delete(id);
+    else {
+      if (this.picking.size >= 5) return;
+      this.picking.add(id);
+    }
+  }
+  isPicked(id: string) { return this.picking.has(id); }
+
+  saveStarters() {
+    if (this.picking.size !== 5) { alert('Select exactly 5 starters.'); return; }
+    const starterIds = Array.from(this.picking);
+    this.teamApi.setStarters(starterIds).subscribe({
+      next: () => this.loadTeam()
+    });
+  }
+
   start(diff:'easy'|'normal'|'hard'|'legend') {
     if (this.inLive) return;
     if (!this.starters || this.starters.length !== 5) {
@@ -89,7 +113,6 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     });
   }
 
-  /* ===== drawing ===== */
   private reset(){ this.scoreHome=0; this.scoreAway=0; this.drawCourt(true); }
 
   private applyEvent(ev: PbpEvent) {

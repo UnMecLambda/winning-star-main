@@ -3,9 +3,17 @@
     <h2>Basket Manager – Test vs IA</h2>
     <div *ngIf="loadingTeam">Loading team…</div>
 
+    <!-- Aucune team : bouton pour créer -->
+    <div *ngIf="!loadingTeam && !team" class="team-block">
+      <p>You don’t have a team yet.</p>
+      <button class="save" (click)="createTeam()">Create my default team</button>
+    </div>
+
+    <!-- Team présente -->
     <ng-container *ngIf="!loadingTeam && team">
       <div class="team-block">
         <h3>{{ team.name }}</h3>
+
         <div class="starters">
           <h4>Starters ({{ starters.length }}/5)</h4>
           <div class="list">
@@ -17,24 +25,26 @@
         </div>
 
         <div class="roster">
-          <h4>Roster ({{ roster.length }})</h4>
+          <h4>Pick 5 starters from roster</h4>
           <div class="list">
-            <div class="p dim" *ngFor="let p of roster">
+            <label class="p pick" *ngFor="let p of roster">
+              <input type="checkbox" [checked]="isPicked(p._id)" (change)="togglePick(p._id)">
               <div class="n">{{ p.name }}</div>
               <div class="meta">{{ p.position }} • OVR ~ {{ ovr(p) }}</div>
-            </div>
+            </label>
           </div>
+          <button class="save" (click)="saveStarters()">Save starters</button>
         </div>
       </div>
-    </ng-container>
 
-    <div class="controls">
-      <button (click)="start('easy')"   [disabled]="inLive">IA Easy (Live)</button>
-      <button (click)="start('normal')" [disabled]="inLive">IA Normal</button>
-      <button (click)="start('hard')"   [disabled]="inLive">IA Hard</button>
-      <button (click)="start('legend')" [disabled]="inLive">IA Legend</button>
-      <span class="score">{{scoreHome}} - {{scoreAway}}</span>
-    </div>
+      <div class="controls">
+        <button (click)="start('easy')"   [disabled]="inLive">IA Easy (Live)</button>
+        <button (click)="start('normal')" [disabled]="inLive">IA Normal</button>
+        <button (click)="start('hard')"   [disabled]="inLive">IA Hard</button>
+        <button (click)="start('legend')" [disabled]="inLive">IA Legend</button>
+        <span class="score">{{scoreHome}} - {{scoreAway}}</span>
+      </div>
+    </ng-container>
   </div>
 
   <div class="right">

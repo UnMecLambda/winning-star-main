@@ -10,24 +10,19 @@ import friendlyRouter from './manager/routes/friendly';
 import matchmakingRouter from './manager/routes/matchmaking';
 import seasonRouter from './manager/routes/season';
 import aiRouter from './manager/routes/ai';
-import meRouter from './manager/routes/me';
+import debugRouter from './manager/routes/debug';
 
-/**
- * Monte les routes Manager sous /api/manager/*
- * (Ne touche pas à la connexion Mongo : déjà gérée dans server.ts)
- */
 export function mountManager(app: Express) {
-  app.use('/api/manager', managerBootstrap);              // POST /api/manager/bootstrap
-  app.use('/api/manager/me', managerMe);                  // GET  /api/manager/me
-  app.use('/api/manager/players', managerPlayers);        // GET  /api/manager/players
-  app.use('/api/manager/team', managerTeam);              // POST /buy, /set-starters
-  app.use('/api/manager/match', managerMatch);            // POST /simulate
-  app.use('/api/manager/economy', managerEconomy);        // POST /earn
+  app.use('/api/manager', managerBootstrap);       // POST /api/manager/bootstrap
+  app.use('/api/manager/me', managerMe);           // GET  /api/manager/me/team
+  app.use('/api/manager/players', managerPlayers);
+  app.use('/api/manager/team', managerTeam);
+  app.use('/api/manager/match', managerMatch);
+  app.use('/api/manager/economy', managerEconomy);
   app.use('/api/manager/friendly', friendlyRouter);
   app.use('/api/manager/matchmaking', matchmakingRouter);
   app.use('/api/manager/season', seasonRouter);
-  app.use('/api/manager/season', seasonRouter);
   app.use('/api/manager/ai', aiRouter);
-  app.use('/api/manager/me', meRouter); // 👈 important
-}
+  app.use('/api/manager/debug', debugRouter);
 
+}
