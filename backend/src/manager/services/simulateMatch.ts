@@ -1,159 +1,184 @@
 import { Types } from 'mongoose';
-import { Player, PlayerDoc } from '../models/Player';
-import { TeamDoc } from '../models/Team';
-import { OffTactic, DefTactic } from '../models/Tactics';
+import { ITeam } from '../models/Team';
+import { Player, IPlayer } from '../models/Player';
 
-type Box = { player: Types.ObjectId, pts: number, reb: number, ast: number, stl: number, blk: number, tov: number, min: number };
-type PBPEvent = { t: number; team: 'home'|'away'; kind: 'shot2'|'shot3'|'miss2'|'miss3'|'rebound'|'turnover'|'assist'|'block'|'steal'|'foul'|'tipoff'; player?: Types.ObjectId; assist?: Types.ObjectId };
+type Box = {
+  player: Types.ObjectId;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  min: number;
+};
 
-const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
-const rnd=(n:number)=>Math.random()*n;
+export type SimulateOptions = {
+  playByPlay?: boolean;
+};
 
-// multiplicateurs tactiques
-function offMods(off: OffTactic) {
-  switch (off) {
-    case 'fast_break':     return { pace:+8,  usageIso:-0.05, assist:+0.05, tov:+0.03, threeRate:+0.05 };
-    case 'ball_movement':  return { pace:+0,  usageIso:-0.10, assist:+0.15, tov:-0.02, threeRate:+0.08 };
-    case 'isolation':      return { pace:-2,  usageIso:+0.18, assist:-0.20, tov:+0.01, threeRate:+0.00 };
-    case 'pick_and_roll':  return { pace:+2,  usageIso:+0.05, assist:+0.10, tov:+0.00, threeRate:+0.04 };
-    case 'post_up':        return { pace:-4,  usageIso:+0.10, assist:-0.05, tov:+0.00, threeRate:-0.06 };
-    case 'pace_and_space': return { pace:+3,  usageIso:+0.00, assist:+0.05, tov:+0.00, threeRate:+0.10 };
-  }
-}
-function defMods(def: DefTactic) {
-  switch (def) {
-    case 'man_to_man':       return { threeAcc: 0, rimAcc: 0, tov:+0.00, pace:0, reb:0 };
-    case 'zone_23':          return { threeAcc:+0.02, rimAcc:-0.05, tov:-0.01, pace:-1, reb:-0.02 };
-    case 'zone_32':          return { threeAcc:-0.04, rimAcc:+0.01, tov:+0.01, pace:-1, reb:-0.01 };
-    case 'switch_all':       return { threeAcc:-0.02, rimAcc:+0.00, tov:+0.02, pace:0, reb:-0.02 };
-    case 'drop':             return { threeAcc:+0.03, rimAcc:-0.04, tov:+0.00, pace:0, reb:+0.01 };
-    case 'full_court_press': return { threeAcc: 0,   rimAcc: 0,   tov:+0.04, pace:+4, reb:-0.03 };
-  }
-}
+export type SimulateResult = {
+  scoreHome: number;
+  scoreAway: number;
+  boxHome: Box[];
+  boxAway: Box[];
+  playByPlay?: Array<{ kind: 'shot2' | 'shot3'; team: 'home' | 'away'; t: number }>;
+};
 
-export async function simulateMatch(home: TeamDoc, away: TeamDoc, opts?: { playByPlay?: boolean }) {
+const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
+const rnd = (n: number) => Math.random() * n;
+
+/**
+ * Simulation simple:
+ * - charge les 5 titulaires des deux équipes
+ * - calcule un score attendu via ratings Off/Def/Reb
+ * - génère des boxscores et (optionnel) du play-by-play pour le live
+ */
+export async function simulateMatch(
+  home: ITeam,
+  away: ITeam,
+  opts: SimulateOptions = {}
+): Promise<SimulateResult> {
+  // 1) Charger les 5 titulaires
   const [H, A] = await Promise.all([
-    Player.find({ _id: { $in: home.starters } }) as unknown as Promise<PlayerDoc[]>,
-    Player.find({ _id: { $in: away.starters } }) as unknown as Promise<PlayerDoc[]>,
+    Player.find({ _id: { $in: home.starters } }),
+    Player.find({ _id: { $in: away.starters } }),
   ]);
 
-  const sum = (a:number[]) => a.reduce((p,c)=>p+c,0);
-  const scoreAbility = (p: PlayerDoc) =>
-    p.ratingOff * 0.6 + p.threePt * 0.2 + p.dribble * 0.2;
+  // Sécurité: si pas 5, fallback sur les 5 premiers du roster
+  const needHome = H.length < 5 && home.roster?.length >= 5;
+  const needAway = A.length < 5 && away.roster?.length >= 5;
+  if (needHome) {
+    const hb = await Player.find({ _id: { $in: home.roster.slice(0, 5) } });
+    if (hb.length === 5) H.splice(0, H.length, ...hb);
+  }
+  if (needAway) {
+    const ab = await Player.find({ _id: { $in: away.roster.slice(0, 5) } });
+    if (ab.length === 5) A.splice(0, A.length, ...ab);
+  }
 
-  const hmO = offMods(home.tactics?.offense ?? 'pace_and_space');
-  const awO = offMods(away.tactics?.offense ?? 'pace_and_space');
-  const hmD = defMods(home.tactics?.defense ?? 'man_to_man');
-  const awD = defMods(away.tactics?.defense ?? 'man_to_man');
+  if (H.length !== 5 || A.length !== 5) {
+    // dernier fallback: renvoie un score neutre
+    return {
+      scoreHome: 70,
+      scoreAway: 70,
+      boxHome: [],
+      boxAway: [],
+      playByPlay: opts.playByPlay ? [] : undefined,
+    };
+  }
 
-  const hOff = sum(H.map(scoreAbility));
-  const aOff = sum(A.map(scoreAbility));
-  const hDef = sum(H.map(p => p.ratingDef * 0.8 + p.stamina * 0.2));
-  const aDef = sum(A.map(p => p.ratingDef * 0.8 + p.stamina * 0.2));
-  const hReb = sum(H.map(p => p.ratingReb));
-  const aReb = sum(A.map(p => p.ratingReb));
+  // 2) Evaluer les forces
+  const sum = (arr: number[]) => arr.reduce((p, c) => p + c, 0);
 
-  let paceBase = 90 + ((sum(H.map(p=>p.speed)) - sum(A.map(p=>p.speed)))/500);
-  paceBase += hmO.pace + awO.pace + hmD.pace + awD.pace;
+  const hOff = sum(H.map((p) => p.ratingOff));
+  const aOff = sum(A.map((p) => p.ratingOff));
+  const hDef = sum(H.map((p) => p.ratingDef));
+  const aDef = sum(A.map((p) => p.ratingDef));
+  const hReb = sum(H.map((p) => p.ratingReb));
+  const aReb = sum(A.map((p) => p.ratingReb));
 
-  const expH = clamp((hOff - aDef)/12 + paceBase + 3, 70, 145);
-  const expA = clamp((aOff - hDef)/12 + paceBase,       70, 145);
+  // influence simple des tactiques si présentes
+  const offBiasHome =
+    (home.tactics?.offense?.fastBreak ?? 50) * 0.06 +
+    (home.tactics?.offense?.ballMovement ?? 50) * 0.04 +
+    (home.tactics?.offense?.isolation ?? 50) * 0.03;
+  const offBiasAway =
+    (away.tactics?.offense?.fastBreak ?? 50) * 0.06 +
+    (away.tactics?.offense?.ballMovement ?? 50) * 0.04 +
+    (away.tactics?.offense?.isolation ?? 50) * 0.03;
 
-  const scoreHome = Math.round(expH + (Math.random()-0.5)*10);
-  const scoreAway = Math.round(expA + (Math.random()-0.5)*10);
+  const defBiasHome =
+    (home.tactics?.defense?.man ?? 60) * 0.05 +
+    (home.tactics?.defense?.zone ?? 40) * 0.03 +
+    (home.tactics?.defense?.pressure ?? 50) * 0.05;
+  const defBiasAway =
+    (away.tactics?.defense?.man ?? 60) * 0.05 +
+    (away.tactics?.defense?.zone ?? 40) * 0.03 +
+    (away.tactics?.defense?.pressure ?? 50) * 0.05;
 
-  const distribute = (ps: PlayerDoc[], total:number, off: ReturnType<typeof offMods>) : Box[] => {
-    // poids d'usage : isolation booste les meilleurs scoreurs
-    const baseW = ps.map(p => p.ratingOff*0.55 + p.threePt*0.25 + p.dribble*0.20);
-    const maxIdx = baseW.indexOf(Math.max(...baseW));
-    baseW[maxIdx] *= (1 + Math.max(0, off.usageIso)); // boost iso
-    const W = baseW.reduce((p,c)=>p+c,0);
+  const pace = 90 + rnd(20) - 10;
 
-    return ps.map((p,i)=>{
-      const share = total * (baseW[i]/W);
-      const threeBonus = off.threeRate; // oriente vers 3pts
-      const pts = Math.max(0, Math.round(share + (Math.random()-0.5)*6));
+  const expH = clamp((hOff - aDef) / 10 + pace + offBiasHome * 0.1 - defBiasAway * 0.08, 70, 140);
+  const expA = clamp((aOff - hDef) / 10 + pace + offBiasAway * 0.1 - defBiasHome * 0.08, 70, 140);
 
-      const reb = Math.round((p.ratingReb/99) * (40/ps.length) + rnd(2));
-      const ast = Math.round(((p.pass)/99) * (25/ps.length) * (1 + off.assist) + rnd(2));
-      const stl = Math.round((p.ratingDef/99) * (1 + Math.max(0, hmD.tov)) * rnd(3));
-      const blk = Math.round((p.ratingDef/99) * rnd(2));
-      const tov = Math.round(Math.max(0, rnd(3) * (1 + off.tov)));
+  const scoreHome = Math.round(expH + (Math.random() - 0.5) * 10);
+  const scoreAway = Math.round(expA + (Math.random() - 0.5) * 10);
 
-      const min = Math.max(24, Math.min(38, 26 + Math.round(((p.stamina)-70)/2 + rnd(8))));
-      return { player: p._id, pts, reb, ast, stl, blk, tov, min };
+  // 3) Distribution boxscore
+  const distribute = (ps: IPlayer[], total: number): Box[] => {
+    const w = ps.map((p) => Math.max(1, p.ratingOff));
+    const W = w.reduce((p, c) => p + c, 0);
+    return ps.map((p, i) => {
+      const share = total * (w[i] / W);
+      const pts = Math.max(0, Math.round(share + (Math.random() - 0.5) * 6));
+      const reb = Math.round((p.ratingReb / 99) * (40 / ps.length) + rnd(2));
+      const ast = Math.round((p.ratingOff / 99) * (25 / ps.length) + rnd(2));
+      const stl = Math.round((p.ratingDef / 99) * rnd(3));
+      const blk = Math.round((p.ratingDef / 99) * rnd(2));
+      const tov = Math.round(rnd(3));
+      return {
+        player: p._id as Types.ObjectId,
+        pts,
+        reb,
+        ast,
+        stl,
+        blk,
+        tov,
+        min: 30 + Math.round(rnd(8)),
+      };
     });
   };
 
-  const boxHome = distribute(H, scoreHome, hmO);
-  const boxAway = distribute(A, scoreAway, awO);
+  const boxHome = distribute(H, scoreHome);
+  const boxAway = distribute(A, scoreAway);
 
-  const fix=(box:Box[], target:number)=>{
-    const diff = target - box.reduce((p,c)=>p+c.pts,0);
+  // Ajuste total si décalage
+  const fix = (box: Box[], target: number) => {
+    const sumPts = box.reduce((p, c) => p + c.pts, 0);
+    const diff = target - sumPts;
     if (diff) {
-      const i = Math.floor(Math.random()*box.length);
+      const i = Math.floor(Math.random() * box.length);
       box[i].pts = Math.max(0, box[i].pts + diff);
     }
   };
   fix(boxHome, scoreHome);
   fix(boxAway, scoreAway);
 
-  // rebond d’équipe influencé par les tactiques défensives
-  const rebAdjH = hReb * (1 + (hmD.reb ?? 0));
-  const rebAdjA = aReb * (1 + (awD.reb ?? 0));
-  if (rebAdjH > rebAdjA) boxHome.forEach(b=>b.reb+=1);
-  else if (rebAdjA > rebAdjH) boxAway.forEach(b=>b.reb+=1);
+  // petit bonus rebonds à l'équipe avec meilleur total Rebound
+  if (hReb > aReb) boxHome.forEach((b) => (b.reb += 1));
+  else if (aReb > hReb) boxAway.forEach((b) => (b.reb += 1));
 
-  // ---- Play-by-play minimal pour animer des "points" sur le terrain
-  let pbp: PBPEvent[] = [];
-  if (opts?.playByPlay) {
-    const possessions = Math.round((scoreHome + scoreAway) / 2); // approx
-    let clock = 48 * 60; // secondes
-    for (let i=0;i<possessions;i++){
-      clock -= Math.max(4, Math.round( rnd(18) ));
-      const team = Math.random() < 0.5 ? 'home' : 'away';
-      const roster = team === 'home' ? H : A;
-      const box   = team === 'home' ? boxHome : boxAway;
+  // 4) Play-by-play (facultatif)
+  let pbp: SimulateResult['playByPlay'] = undefined;
+  if (opts.playByPlay) {
+    pbp = [];
+    // on génère ~30 évènements tirs 2/3 pts cohérents avec le score
+    const eventsCount = 30;
+    let accH = 0;
+    let accA = 0;
 
-      // pick random player weighted by ratingOff
-      const w = roster.map(p => p.ratingOff);
-      const W = w.reduce((p,c)=>p+c,0);
-      let acc = Math.random()*W, idx = 0;
-      for (; idx<w.length; idx++){ acc -= w[idx]; if (acc<=0) break; }
-      const shooter = roster[Math.min(idx, roster.length-1)];
-      const shooterId = shooter._id;
+    for (let t = 1; t <= eventsCount; t++) {
+      const isThree = Math.random() < 0.35;
+      const team: 'home' | 'away' = Math.random() < 0.5 ? 'home' : 'away';
+      pbp.push({ kind: isThree ? 'shot3' : 'shot2', team, t });
 
-      // 2pts vs 3pts selon tactique offensive + defensive adverse
-      const off = team==='home'? hmO : awO;
-      const def = team==='home'? awD : hmD;
-      const threeProb = 0.32 + off.threeRate + (def.threeAcc ?? 0);
-      const is3 = Math.random() < threeProb;
-
-      // accuracy
-      const baseAcc = (shooter.ratingOff/140) + (is3 ? shooter.threePt/200 : 0) - (is3 ? 0.02 : 0);
-      const accMod = (is3 ? (-(def.threeAcc ?? 0)) : (-(def.rimAcc ?? 0)));
-      const made = Math.random() < clamp(baseAcc + accMod, 0.25, 0.72);
-
-      if (made) {
-        pbp.push({ t: clock, team, kind: is3 ? 'shot3' : 'shot2', player: shooterId });
-        // petite chance d'assist
-        if (Math.random() < 0.55 + off.assist) {
-          const mates = roster.filter(p => p._id.toString() !== shooterId.toString());
-          const a = mates[Math.floor(Math.random()*mates.length)];
-          pbp.push({ t: clock, team, kind: 'assist', player: a._id, assist: shooterId });
-        }
-      } else {
-        pbp.push({ t: clock, team, kind: is3 ? 'miss3' : 'miss2', player: shooterId });
-        // rebond aléatoire
-        pbp.push({ t: clock, team: Math.random()<0.55 ? team : (team==='home'?'away':'home'), kind: 'rebound' });
-      }
-
-      // turnovers stimulés par défenses agressives
-      if (Math.random() < 0.10 + (def.tov ?? 0)) {
-        pbp.push({ t: clock, team, kind: 'turnover', player: shooterId });
-      }
+      if (team === 'home') accH += isThree ? 3 : 2;
+      else accA += isThree ? 3 : 2;
     }
+
+    // étire un peu pour coller au score final (sans être exact)
+    const deltaH = Math.max(0, scoreHome - accH);
+    const deltaA = Math.max(0, scoreAway - accA);
+    for (let i = 0; i < Math.floor(deltaH / 2); i++) pbp.push({ kind: 'shot2', team: 'home', t: eventsCount + i + 1 });
+    for (let i = 0; i < Math.floor(deltaA / 2); i++) pbp.push({ kind: 'shot2', team: 'away', t: eventsCount + i + 1 });
   }
 
-  return { scoreHome, scoreAway, boxHome, boxAway, playByPlay: pbp };
+  return {
+    scoreHome,
+    scoreAway,
+    boxHome,
+    boxAway,
+    playByPlay: pbp,
+  };
 }

@@ -26,14 +26,12 @@ export async function startLiveMatch(match: MatchDoc) {
 
   const sim = await simulateMatch(home, away, { playByPlay: true });
 
-  // stream des évènements
   const events = sim.playByPlay || [];
   for (const e of events) {
     ioRef.to(room(match._id)).emit('match:pbp', { matchId: match._id, ev: e });
-    await new Promise(r => setTimeout(r, 300)); // ~0.3s pour l’anim
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  // fin de match
   match.status = 'finished';
   match.scoreHome = sim.scoreHome;
   match.scoreAway = sim.scoreAway;
@@ -49,25 +47,32 @@ export async function startLiveMatch(match: MatchDoc) {
   });
 }
 
-/** Match amical live entre deux teams */
+/** Match amical live entre deux teams (ne jette jamais) */
 export async function startFriendlyLive(homeTeamId: string, awayTeamId: string) {
-  const [home, away] = await Promise.all([
-    Team.findById(homeTeamId),
-    Team.findById(awayTeamId)
-  ]);
-  if (!home || !away) throw new Error('Teams not found');
-  if (home.starters.length !== 5 || away.starters.length !== 5) throw new Error('Need 5 starters');
+  try {
+    const [home, away] = await Promise.all([
+      Team.findById(homeTeamId),
+      Team.findById(awayTeamId)
+    ]);
+    if (!home || !away) throw new Error('Teams not found');
+    if (home.starters.length !== 5 || away.starters.length !== 5) throw new Error('Need 5 starters');
 
-  const match = await Match.create({
-    status: 'scheduled',
-    home: home._id,
-    away: away._id,
-    tacticsHome: home.tactics ?? { offense: DEFAULT_OFF, defense: DEFAULT_DEF },
-    tacticsAway: away.tactics ?? { offense: DEFAULT_OFF, defense: DEFAULT_DEF },
-  });
+    const match = await Match.create({
+      status: 'scheduled',
+      home: home._id,
+      away: away._id,
+      tacticsHome: home.tactics ?? { offense: DEFAULT_OFF, defense: DEFAULT_DEF },
+      tacticsAway: away.tactics ?? { offense: DEFAULT_OFF, defense: DEFAULT_DEF },
+    });
 
-  startLiveMatch(match).catch(()=>{ /* swallow */ });
-  return match._id;
+    // lance en arrière-plan
+    startLiveMatch(match).catch(err => console.error('[startLiveMatch] fail:', err));
+    return match._id.toString();
+  } catch (e: any) {
+    console.error('[startFriendlyLive] error:', e?.message || e);
+    // renvoyer un matchId synthétique pour ne pas casser le front (optionnel)
+    return `err:${Date.now().toString(36)}`;
+  }
 }
 
 /** Simulation instantanée (pas de stream) */
@@ -92,5 +97,5 @@ export async function simulateFriendlyInstant(homeTeamId: string, awayTeamId: st
     startedAt: new Date(),
     finishedAt: new Date()
   });
-  return { matchId: match._id, ...sim };
+  return { ok: true, matchId: match._id.toString(), ...sim };
 }

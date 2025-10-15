@@ -1,24 +1,47 @@
-import { Schema, model, Types, Document } from 'mongoose';
-import { DEFAULT_DEF, DEFAULT_OFF, Tactics } from './Tactics';
+import mongoose, { Schema, Types, Document, Model } from 'mongoose';
 
-export interface TeamDoc extends Document {
-  _id: Types.ObjectId;
-  owner: Types.ObjectId;
-  name: string;
-  roster: Types.ObjectId[];
-  starters: Types.ObjectId[];
-  tactics: Tactics;
+export type Pos = 'PG'|'SG'|'SF'|'PF'|'C';
+
+export interface ITactics {
+  offense: { fastBreak: number; ballMovement: number; isolation: number };
+  defense: { man: number; zone: number; pressure: number };
 }
 
-const TeamSchema = new Schema<TeamDoc>({
-  owner:   { type: Schema.Types.ObjectId, ref: 'User', unique: true, required: true },
-  name:    { type: String, default: 'My Team' },
-  roster:  [{ type: Schema.Types.ObjectId, ref: 'Player' }],
-  starters:[{ type: Schema.Types.ObjectId, ref: 'Player' }],
-  tactics: {
-    offense: { type: String, enum: ['fast_break','ball_movement','isolation','pick_and_roll','post_up','pace_and_space'], default: DEFAULT_OFF },
-    defense: { type: String, enum: ['man_to_man','zone_23','zone_32','switch_all','drop','full_court_press'], default: DEFAULT_DEF }
+export interface ITeam extends Document {
+  _id: Types.ObjectId;
+  owner?: Types.ObjectId;            // ← optionnel (user) ; absent pour IA
+  isAI: boolean;                     // ← flag IA
+  name: string;
+  roster: Types.ObjectId[];          // ref Player
+  starters: Types.ObjectId[];        // ref Player (5)
+  tactics?: ITactics;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const TacticsSchema = new Schema<ITactics>({
+  offense: {
+    fastBreak:   { type: Number, default: 50, min: 0, max: 100 },
+    ballMovement:{ type: Number, default: 50, min: 0, max: 100 },
+    isolation:   { type: Number, default: 50, min: 0, max: 100 },
+  },
+  defense: {
+    man:      { type: Number, default: 60, min: 0, max: 100 },
+    zone:     { type: Number, default: 40, min: 0, max: 100 },
+    pressure: { type: Number, default: 50, min: 0, max: 100 },
   }
+}, { _id: false });
+
+const TeamSchema = new Schema<ITeam>({
+  owner:   { type: Schema.Types.ObjectId, ref: 'User', required: false, index: true }, // ← plus required
+  isAI:    { type: Boolean, default: false, index: true },                              // ← flag IA
+  name:    { type: String, required: true, trim: true },
+  roster:  [{ type: Schema.Types.ObjectId, ref: 'Player', required: true, default: [] }],
+  starters:[{ type: Schema.Types.ObjectId, ref: 'Player', required: true, default: [] }],
+  tactics: { type: TacticsSchema, required: false },
 }, { timestamps: true });
 
-export const Team = model<TeamDoc>('Team', TeamSchema);
+TeamSchema.index({ owner: 1 });
+TeamSchema.index({ isAI: 1, name: 1 });
+
+export const Team: Model<ITeam> = mongoose.model<ITeam>('Team', TeamSchema);

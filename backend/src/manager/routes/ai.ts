@@ -9,10 +9,9 @@ const router = Router();
 
 const schema = z.object({
   difficulty: z.enum(['easy','normal','hard','legend']).default('normal'),
-  live: z.boolean().optional()
+  live: z.boolean().optional().default(true)
 });
 
-/** POST /api/manager/ai/start */
 router.post('/start', authenticate, async (req: AuthRequest, res) => {
   try {
     const p = schema.safeParse(req.body);
@@ -22,13 +21,17 @@ router.post('/start', authenticate, async (req: AuthRequest, res) => {
     if (!myTeam) return res.status(404).json({ error: 'My team not found' });
     if (myTeam.starters.length !== 5) return res.status(400).json({ error: 'Set 5 starters' });
 
-    const aiTeamId = await ensureAiTeam(p.data.difficulty);
+    const aiTeam = await ensureAiTeam(p.data.difficulty);
+    if (aiTeam instanceof Error) {
+      console.error('[ai/start] ensureAiTeam failed:', aiTeam.message);
+      return res.status(409).json({ error: aiTeam.message });
+    }
 
     if (p.data.live) {
-      const matchId = await startFriendlyLive(myTeam._id.toString(), aiTeamId);
+      const matchId = await startFriendlyLive(myTeam._id.toString(), aiTeam);
       return res.json({ ok: true, matchId });
     } else {
-      const sim = await simulateFriendlyInstant(myTeam._id.toString(), aiTeamId);
+      const sim = await simulateFriendlyInstant(myTeam._id.toString(), aiTeam);
       return res.json(sim);
     }
   } catch (e) {
@@ -37,6 +40,5 @@ router.post('/start', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-// ✅ export par défaut ET export nommé pour couvrir les deux styles d'import
 export default router;
 export const aiRouter = router;
