@@ -8,7 +8,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { mountManager } from './mountManager';
 
-
 // Charge toujours le .env situé dans backend/.env
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
@@ -27,6 +26,9 @@ import { errorHandler } from './middleware/errorHandler';
 import { authenticateSocket } from './middleware/socketAuth';
 import { seedRacketData } from './data/rackets';
 import { seedCharacterData } from './data/characters';
+
+// 👉 brancher le live manager
+import { setLiveIO } from './manager/services/live';
 
 const app = express();
 const server = createServer(app);
@@ -69,8 +71,7 @@ app.use(express.urlencoded({ extended: true }));
 // Manager module (REST)
 mountManager(app);
 
-
-// Routes
+// Routes (legacy)
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/store', storeRoutes);
@@ -81,7 +82,7 @@ app.use('/api/ledger', ledgerRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
@@ -91,6 +92,20 @@ app.use(errorHandler);
 // Socket.IO setup
 io.use(authenticateSocket);
 setupSocketHandlers(io);
+
+// 👉 branche le socket dans le service live manager
+setLiveIO(io);
+
+// 👉 handler générique pour rejoindre une room (manager match viewer)
+io.on('connection', (socket) => {
+  socket.on('join_room', (room: string) => {
+    try {
+      socket.join(room);
+    } catch (e) {
+      // ignore
+    }
+  });
+});
 
 const PORT = process.env.PORT || 3001;
 

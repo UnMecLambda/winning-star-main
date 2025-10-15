@@ -12,23 +12,31 @@ const schema = z.object({
   live: z.boolean().optional()
 });
 
+/** POST /api/manager/ai/start */
 router.post('/start', authenticate, async (req: AuthRequest, res) => {
-  const p = schema.safeParse(req.body);
-  if (!p.success) return res.status(400).json(p.error);
+  try {
+    const p = schema.safeParse(req.body);
+    if (!p.success) return res.status(400).json(p.error);
 
-  const myTeam = await Team.findOne({ owner: (req.user as any)._id });
-  if (!myTeam) return res.status(404).json({ error: 'My team not found' });
-  if (myTeam.starters.length !== 5) return res.status(400).json({ error: 'Set 5 starters' });
+    const myTeam = await Team.findOne({ owner: (req.user as any)._id });
+    if (!myTeam) return res.status(404).json({ error: 'My team not found' });
+    if (myTeam.starters.length !== 5) return res.status(400).json({ error: 'Set 5 starters' });
 
-  const aiTeamId = await ensureAiTeam(p.data.difficulty);
+    const aiTeamId = await ensureAiTeam(p.data.difficulty);
 
-  if (p.data.live) {
-    const matchId = await startFriendlyLive(myTeam._id.toString(), aiTeamId);
-    return res.json({ ok: true, matchId });
-  } else {
-    const sim = await simulateFriendlyInstant(myTeam._id.toString(), aiTeamId);
-    return res.json(sim);
+    if (p.data.live) {
+      const matchId = await startFriendlyLive(myTeam._id.toString(), aiTeamId);
+      return res.json({ ok: true, matchId });
+    } else {
+      const sim = await simulateFriendlyInstant(myTeam._id.toString(), aiTeamId);
+      return res.json(sim);
+    }
+  } catch (e) {
+    console.error('[ai/start] error', e);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+// ✅ export par défaut ET export nommé pour couvrir les deux styles d'import
 export default router;
+export const aiRouter = router;

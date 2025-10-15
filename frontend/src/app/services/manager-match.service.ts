@@ -1,36 +1,44 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { io, Socket } from 'socket.io-client';
 import { Observable, Subject } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { io as ioc, Socket } from 'socket.io-client';
 
-export type PbpEvent = { t:number; team:'home'|'away'; kind:string; player?:string; assist?:string };
-export type MatchEnded = { matchId:string; scoreHome:number; scoreAway:number; boxHome:any[]; boxAway:any[] };
+export type PbpEvent = {
+  kind: 'shot2'|'shot3'|'rebound'|'turnover'|'steal'|'block';
+  team: 'home'|'away';
+  t?: number;
+};
 
 @Injectable({ providedIn: 'root' })
 export class ManagerMatchService {
-  private socket!: Socket;
+  private base = environment.apiUrl; // http://localhost:3001/api
+  private socket?: Socket;
+
   private pbp$ = new Subject<PbpEvent>();
-  private ended$ = new Subject<MatchEnded>();
+  private ended$ = new Subject<{ matchId: string; scoreHome:number; scoreAway:number }>();
 
   constructor(private http: HttpClient) {
-    this.socket = io((window as any).env?.GAME_URL || 'http://localhost:3001', {
-      transports: ['websocket'],
-      withCredentials: true,
+    const apiRoot = this.base.replace(/\/api\/?$/, '');
+    this.socket = ioc(apiRoot, { transports: ['websocket'] });
+
+    // ⬇️ écoute les noms d’évènements de ton live.ts
+    this.socket.on('match:pbp', (payload: { matchId: string; ev: PbpEvent }) => {
+      this.pbp$.next(payload.ev);
     });
-    this.socket.on('match:pbp', (m: {matchId:string; ev:PbpEvent}) => this.pbp$.next(m.ev));
-    this.socket.on('match:ended', (m: MatchEnded) => this.ended$.next(m));
+    this.socket.on('match:ended', (end: { matchId: string; scoreHome:number; scoreAway:number }) => {
+      this.ended$.next(end);
+    });
   }
 
-  startAIFriendly(difficulty:'easy'|'normal'|'hard'|'legend', live:boolean) {
-    return this.http.post<{ok?:boolean; matchId?:string; scoreHome?:number}>('/api/manager/ai/start', { difficulty, live });
-  }
-  startFriendly(opponentTeamId: string, live:boolean) {
-    return this.http.post<{ok?:boolean; matchId?:string; scoreHome?:number}>('/api/manager/friendly/start', { opponentTeamId, live });
+  startAIFriendly(difficulty: 'easy'|'normal'|'hard'|'legend', live = true) {
+    return this.http.post<{ ok:boolean; matchId:string }>(`${this.base}/manager/ai/start`, { difficulty, live });
   }
 
-  joinMatch(matchId: string) { this.socket.emit('match:join', { matchId }); }
-  leaveMatch(matchId: string) { this.socket.emit('match:leave', { matchId }); }
+  joinMatch(matchId: string) {
+    this.socket?.emit('join_room', `match:${matchId}`);
+  }
 
   onPbp(): Observable<PbpEvent> { return this.pbp$.asObservable(); }
-  onEnded(): Observable<MatchEnded> { return this.ended$.asObservable(); }
+  onEnded(): Observable<{ matchId: string; scoreHome:number; scoreAway:number }> { return this.ended$.asObservable(); }
 }
