@@ -13,16 +13,25 @@ export class ManagerMatchService {
   private ended$ = new Subject<{ matchId: string; scoreHome: number; scoreAway: number }>();
 
   constructor(private http: HttpClient) {
-    const base = environment.apiUrl.replace(/\/api\/?$/, ''); // ==> http://localhost:3001
-    this.socket = io(base, { transports: ['websocket'], withCredentials: true });
+    const base = environment.apiUrl.replace(/\/api\/?$/, ''); // -> http://localhost:3001
+    const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('access_token') || '' : '';
+
+    this.socket = io(base, {
+      transports: ['websocket'],
+      withCredentials: true,
+      path: '/socket.io',
+      auth: { token },           // <- JWT via auth
+      query: { token }           // <- ET via query (pour compat middleware)
+    });
 
     this.socket.on('connect', () => console.log('[manager-socket] connected', this.socket.id));
-    this.socket.on('disconnect', () => console.log('[manager-socket] disconnected'));
+    this.socket.on('disconnect', (r) => console.log('[manager-socket] disconnected', r));
 
     this.socket.on('match:pbp', (data: { matchId: string; ev: PbpEvent }) => {
-      // console.log('[manager-socket] pbp', data);
+      console.log('[manager-socket] pbp', data);
       this.pbp$.next(data.ev);
     });
+
     this.socket.on('match:ended', (data: any) => {
       console.log('[manager-socket] ended', data);
       this.ended$.next({ matchId: data.matchId, scoreHome: data.scoreHome, scoreAway: data.scoreAway });
@@ -35,8 +44,21 @@ export class ManagerMatchService {
 
   joinMatch(matchId: string) {
     const room = `match:${matchId}`;
-    console.log('[manager-socket] join', room);
-    this.socket.emit('join_room', room);
+    setTimeout(() => {
+      console.log('[manager-socket] join', room);
+      // ACK avec timeout (err est défini si timeout)
+      // @ts-ignore
+      this.socket.timeout(4000).emit('join_room', room, (err: any, res?: { ok: boolean }) => {
+        if (err) {
+          console.warn('[manager-socket] join ack timeout → retry once', err);
+          this.socket.emit('join_room', room, (res2?: { ok: boolean }) => {
+            console.log('[manager-socket] join ack (retry)', res2);
+          });
+          return;
+        }
+        console.log('[manager-socket] join ack', res);
+      });
+    }, 400);
   }
 
   onPbp(): Observable<PbpEvent> { return this.pbp$.asObservable(); }

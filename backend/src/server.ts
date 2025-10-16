@@ -86,13 +86,21 @@ io.use(authenticateSocket);
 setupSocketHandlers(io);
 
 // 👇 branche le live + handler join_room
+// Live manager
 setLiveIO(io);
 io.on('connection', (socket) => {
-  console.log('[socket] connected', socket.id);
-  socket.on('join_room', (room: string) => {
-    socket.join(room);
-    console.log('[socket] join_room', room, 'by', socket.id);
+  console.log('[socket] connected', socket.id, 'userId=', (socket as any).userId);
+
+  socket.on('join_room', (room: string, ack?: (res: { ok: boolean }) => void) => {
+    try {
+      socket.join(room);
+      console.log('[socket] join_room', room, 'by', socket.id);
+      ack?.({ ok: true });
+    } catch {
+      ack?.({ ok: false });
+    }
   });
+
   socket.on('disconnect', () => console.log('[socket] disconnected', socket.id));
 });
 

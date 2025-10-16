@@ -1,43 +1,46 @@
 import { Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { User, IUser } from '../models/User'; // Assure-toi que IUser existe dans ton modèle
+import { User } from '../models/User';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   username?: string;
 }
 
+/**
+ * Auth socket permissif:
+ * - Accepte le token depuis handshake.auth.token, handshake.query.token, ou Authorization: Bearer
+ * - Si pas de token ou token invalide => on laisse passer (anonyme), au lieu de couper la connexion
+ *   (utile pour les viewers publics). Mets STRICT=true si tu veux bloquer sans token.
+ */
+const STRICT = false;
+
 export async function authenticateSocket(socket: AuthenticatedSocket, next: (err?: Error) => void) {
   try {
-    // Récupérer le token depuis handshake.auth ou header Authorization
-    const token =
-      socket.handshake.auth.token ||
-      socket.handshake.headers.authorization?.split(' ')[1];
+    const fromAuth  = (socket.handshake as any)?.auth?.token as string | undefined;
+    // @ts-ignore
+    const fromQuery = socket.handshake?.query?.token as string | undefined;
+    const authHeader = socket.handshake.headers?.authorization as string | undefined;
+
+    let token = fromAuth || fromQuery;
+    if (!token && authHeader?.startsWith('Bearer ')) token = authHeader.slice('Bearer '.length);
 
     if (!token) {
-      return next(new Error('Authentication token required'));
+      if (STRICT) return next(new Error('Authentication token required'));
+      return next(); // anonyme ok
     }
 
-    // Vérifie et décode le token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-      userId: string;
-    };
+    const secret = process.env.JWT_SECRET!;
+    const decoded = jwt.verify(token, secret) as any;
 
-    // Cherche l'utilisateur en DB
-    const user = (await User.findById(decoded.userId).select(
-      '-password'
-    )) as IUser | null;
+    // optionnel: hydrate user pour username propre
+    const user = await User.findById(decoded.userId).select('username').lean();
+    socket.userId = decoded.userId;
+    socket.username = user?.username || decoded.username || decoded.email || '';
 
-    if (!user) {
-      return next(new Error('Invalid token'));
-    }
-
-    // Ajoute les infos sur le socket
-    socket.userId = user._id.toString();
-    socket.username = user.username;
-
-    next();
-  } catch (error) {
-    next(new Error('Authentication failed'));
+    return next();
+  } catch (err) {
+    if (STRICT) return next(new Error('Authentication failed'));
+    return next(); // anonyme ok
   }
 }

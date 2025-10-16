@@ -27,7 +27,6 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
   scoreAway = 0;
   inLive = false;
 
-  // Team UI
   loadingTeam = true;
   team?: { _id: string; name: string; starters: PlayerVm[]; roster: PlayerVm[]; };
   starters: PlayerVm[] = [];
@@ -40,15 +39,10 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // canvas
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
     this.drawCourt(true);
 
-    // sockets -> play-by-play + end
-    this.subP = this.svc.onPbp().subscribe((ev) => {
-      // console.log('[pbp]', ev);
-      this.applyEvent(ev);
-    });
+    this.subP = this.svc.onPbp().subscribe((ev) => this.applyEvent(ev));
     this.subE = this.svc.onEnded().subscribe((end) => {
       console.log('[viewer] ended', end);
       this.inLive = false;
@@ -56,12 +50,10 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
       this.scoreAway = end.scoreAway;
     });
 
-    // charge l'équipe
     this.loadTeam();
   }
   ngOnDestroy() { this.subP?.unsubscribe(); this.subE?.unsubscribe(); }
 
-  // ===== Team helpers =====
   ovr(p: PlayerVm): number {
     const v = p.ratingOff*0.35 + p.ratingDef*0.25 + p.ratingReb*0.15 + p.threePt*0.10 + p.dribble*0.075 + p.pass*0.075;
     return Math.round(v);
@@ -79,7 +71,7 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loadingTeam = false;
-        if (err?.status === 404) this.team = undefined; // pas de team encore
+        if (err?.status === 404) this.team = undefined;
         console.error('[viewer] getMyTeam error', err);
       }
     });
@@ -111,7 +103,6 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ===== Match start =====
   start(diff:'easy'|'normal'|'hard'|'legend') {
     if (this.inLive) return;
     if (!this.starters || this.starters.length !== 5) {
@@ -135,7 +126,6 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ===== Canvas drawing =====
   private reset(){ this.scoreHome=0; this.scoreAway=0; this.drawCourt(true); }
 
   private applyEvent(ev: PbpEvent) {
@@ -144,21 +134,37 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     this.dotRandom(ev.team);
   }
 
+  // ===== Court better look
   private drawCourt(clear=false){
     const c=this.ctx, w=600, h=360;
     if (clear) c.clearRect(0,0,w,h);
+    // parquet
     c.fillStyle = '#0b3a1e'; c.fillRect(0,0,w,h);
     c.strokeStyle = '#f0f0f0'; c.lineWidth = 2;
+
+    // ligne médiane + cercle central
     c.beginPath(); c.moveTo(0,h/2); c.lineTo(w,h/2); c.stroke();
-    c.beginPath(); c.arc(w/2,h/2,60,0,Math.PI*2); c.stroke();
-    c.strokeRect(w*0.1,h*0.05,w*0.8, h*0.2);
-    c.strokeRect(w*0.1,h*0.75,w*0.8, h*0.2);
+    c.beginPath(); c.arc(w/2,h/2,55,0,Math.PI*2); c.stroke();
+
+    // raquettes (peintures)
+    const keyW = 160, keyH = 120;
+    c.strokeRect((w-keyW)/2, 10, keyW, keyH);
+    c.strokeRect((w-keyW)/2, h-10-keyH, keyW, keyH);
+
+    // lignes 3 pts (approx)
+    const r3 = 260, cx=w/2;
+    c.beginPath(); c.arc(cx, 10+keyH, r3, Math.PI*0.85, Math.PI*0.15); c.stroke();
+    c.beginPath(); c.arc(cx, h-10-keyH, r3, -Math.PI*0.15, -Math.PI*0.85, true); c.stroke;
+
+    // paniers (petit cercle)
+    c.beginPath(); c.arc(w/2, 10+keyH, 7, 0, Math.PI*2); c.stroke();
+    c.beginPath(); c.arc(w/2, h-10-keyH, 7, 0, Math.PI*2); c.stroke();
   }
 
   private dotRandom(team:'home'|'away'){
     const w=600,h=360;
     const x = Math.random()*w*0.8 + w*0.1;
-    const y = team==='home' ? h*0.75 + Math.random()*h*0.2 : h*0.05 + Math.random()*h*0.2;
+    const y = team==='home' ? (h-10-120) + Math.random()*120 : 10 + Math.random()*120;
     const color = team==='home' ? '#66ccff' : '#ffcc66';
     const c=this.ctx;
     c.fillStyle=color; c.beginPath(); c.arc(x,y,4,0,Math.PI*2); c.fill();
