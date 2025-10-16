@@ -1,4 +1,3 @@
-// frontend/src/app/services/manager-match.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { io, Socket } from 'socket.io-client';
@@ -14,29 +13,26 @@ export class ManagerMatchService {
   private ended$ = new Subject<{ matchId: string; scoreHome: number; scoreAway: number }>();
 
   constructor(private http: HttpClient) {
-    // 👉 backend base (http://localhost:3001)
-    const base = environment.apiUrl.replace(/\/api\/?$/, '');
+    const base = environment.apiUrl.replace(/\/api\/?$/, ''); // ==> http://localhost:3001
     this.socket = io(base, { transports: ['websocket'], withCredentials: true });
 
     this.socket.on('connect', () => console.log('[manager-socket] connected', this.socket.id));
     this.socket.on('disconnect', () => console.log('[manager-socket] disconnected'));
 
     this.socket.on('match:pbp', (data: { matchId: string; ev: PbpEvent }) => {
+      // console.log('[manager-socket] pbp', data);
       this.pbp$.next(data.ev);
     });
     this.socket.on('match:ended', (data: any) => {
+      console.log('[manager-socket] ended', data);
       this.ended$.next({ matchId: data.matchId, scoreHome: data.scoreHome, scoreAway: data.scoreAway });
     });
   }
 
-  /** Démarre un amical vs IA */
   startAIFriendly(difficulty: 'easy'|'normal'|'hard'|'legend', live = true) {
-    return this.http.post<{ ok: boolean; matchId?: string }>(`${environment.apiUrl}/manager/ai/start`, {
-      difficulty, live
-    });
+    return this.http.post<{ ok: boolean; matchId?: string }>(`${environment.apiUrl}/manager/ai/start`, { difficulty, live });
   }
 
-  /** S’abonner à la room du match */
   joinMatch(matchId: string) {
     const room = `match:${matchId}`;
     console.log('[manager-socket] join', room);

@@ -1,4 +1,3 @@
-// backend/src/server.ts
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -27,7 +26,7 @@ import { authenticateSocket } from './middleware/socketAuth';
 import { seedRacketData } from './data/rackets';
 import { seedCharacterData } from './data/characters';
 
-// 👉 live manager
+// 👇 live Manager
 import { setLiveIO } from './manager/services/live';
 
 const app = express();
@@ -44,7 +43,6 @@ const io = new Server(server, {
   }
 });
 
-// Security middleware
 app.use(helmet());
 app.use(cors({
   origin: [
@@ -56,7 +54,6 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
@@ -64,14 +61,13 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Manager module (REST)
+// Manager REST
 mountManager(app);
 
-// Routes existantes
+// autres routes existantes…
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/store', storeRoutes);
@@ -81,27 +77,23 @@ app.use('/api/game', gameRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+app.get('/health', (_req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
 
-// Error handling
 app.use(errorHandler);
 
-// Socket.IO setup
+// sockets
 io.use(authenticateSocket);
 setupSocketHandlers(io);
 
-// 👉 branche le live Manager
+// 👇 branche le live + handler join_room
 setLiveIO(io);
 io.on('connection', (socket) => {
-  // le viewer s’abonne ici
+  console.log('[socket] connected', socket.id);
   socket.on('join_room', (room: string) => {
     socket.join(room);
-    // simple log utile
     console.log('[socket] join_room', room, 'by', socket.id);
   });
+  socket.on('disconnect', () => console.log('[socket] disconnected', socket.id));
 });
 
 const PORT = process.env.PORT || 3001;
@@ -115,15 +107,12 @@ async function startServer() {
 
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-      console.log(`🌐 CORS enabled for: http://localhost:4200, http://127.0.0.1:4200, http://localhost:3000, http://127.0.0.1:3000`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
-
 startServer();
 
 export { io };
