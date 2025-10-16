@@ -27,6 +27,7 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
   scoreAway = 0;
   inLive = false;
 
+  // Team UI
   loadingTeam = true;
   team?: { _id: string; name: string; starters: PlayerVm[]; roster: PlayerVm[]; };
   starters: PlayerVm[] = [];
@@ -39,20 +40,28 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // canvas
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
     this.drawCourt(true);
 
-    this.subP = this.svc.onPbp().subscribe((ev) => this.applyEvent(ev));
+    // sockets -> play-by-play + end
+    this.subP = this.svc.onPbp().subscribe((ev) => {
+      // console.log('[pbp]', ev);
+      this.applyEvent(ev);
+    });
     this.subE = this.svc.onEnded().subscribe((end) => {
+      console.log('[viewer] ended', end);
       this.inLive = false;
       this.scoreHome = end.scoreHome;
       this.scoreAway = end.scoreAway;
     });
 
+    // charge l'équipe
     this.loadTeam();
   }
   ngOnDestroy() { this.subP?.unsubscribe(); this.subE?.unsubscribe(); }
 
+  // ===== Team helpers =====
   ovr(p: PlayerVm): number {
     const v = p.ratingOff*0.35 + p.ratingDef*0.25 + p.ratingReb*0.15 + p.threePt*0.10 + p.dribble*0.075 + p.pass*0.075;
     return Math.round(v);
@@ -71,6 +80,7 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.loadingTeam = false;
         if (err?.status === 404) this.team = undefined; // pas de team encore
+        console.error('[viewer] getMyTeam error', err);
       }
     });
   }
@@ -79,7 +89,7 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     this.loadingTeam = true;
     this.teamApi.createDefaultTeam().subscribe({
       next: () => this.loadTeam(),
-      error: () => this.loadingTeam = false
+      error: (e) => { this.loadingTeam = false; console.error(e); }
     });
   }
 
@@ -96,10 +106,12 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     if (this.picking.size !== 5) { alert('Select exactly 5 starters.'); return; }
     const starterIds = Array.from(this.picking);
     this.teamApi.setStarters(starterIds).subscribe({
-      next: () => this.loadTeam()
+      next: () => this.loadTeam(),
+      error: (e) => console.error(e)
     });
   }
 
+  // ===== Match start =====
   start(diff:'easy'|'normal'|'hard'|'legend') {
     if (this.inLive) return;
     if (!this.starters || this.starters.length !== 5) {
@@ -108,11 +120,22 @@ export class MatchViewerComponent implements OnInit, OnDestroy {
     }
     this.reset();
     this.inLive = true;
-    this.svc.startAIFriendly(diff, true).subscribe(r=>{
-      if (r.matchId) this.svc.joinMatch(r.matchId);
+
+    this.svc.startAIFriendly(diff, true).subscribe({
+      next: (r) => {
+        console.log('[viewer] startAIFriendly resp', r);
+        if (r?.matchId) this.svc.joinMatch(r.matchId);
+        else { alert('Start failed (no matchId).'); this.inLive = false; }
+      },
+      error: (err) => {
+        console.error('[viewer] start error', err);
+        alert(err?.error?.error || 'Start failed');
+        this.inLive = false;
+      }
     });
   }
 
+  // ===== Canvas drawing =====
   private reset(){ this.scoreHome=0; this.scoreAway=0; this.drawCourt(true); }
 
   private applyEvent(ev: PbpEvent) {
